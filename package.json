@@ -1,6 +1,6 @@
 {
   "name": "aprs-android",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Advanced APRS Android client for the Advanced APRS Go Server (aprsnet.uk)",
   "author": "Daren Loxley 2E0LXY",
   "license": "GPL-3.0",

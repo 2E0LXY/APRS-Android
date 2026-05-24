@@ -3,7 +3,7 @@
 //  Capacitor launch screen + native bridge. Mirrors the desktop client:
 //   - persists settings (callsign, member account, appearance prefs)
 //   - obtains GPS fixes from Android location services
-//   - hands off to the live aprsnet.uk site with the client overlay
+//   - hands off to the aprsnet.uk /mobile page (touch-optimised)
 // ===========================================================================
 (function () {
   'use strict';
@@ -15,7 +15,7 @@
   var Notif = Cap.Plugins && Cap.Plugins.LocalNotifications;
   var AppP  = Cap.Plugins && Cap.Plugins.App;
 
-  var SERVER_URL = 'https://www.aprsnet.uk';
+  var SERVER_URL = 'https://www.aprsnet.uk/mobile';
   var SETTINGS_KEY = 'aprs-android-settings';
 
   var defaults = {
@@ -88,7 +88,7 @@
           id: Date.now() % 100000, schedule: { at: new Date(Date.now() + 100) }
         }]}).catch(function () {});
       },
-      getVersion: function () { return Promise.resolve('1.0.0'); },
+      getVersion: function () { return Promise.resolve('1.1.0'); },
       openExternal: function (url) { window.open(url, '_blank'); },
       reloadWindow: function () { window.location.reload(); },
       getPosition: function () {
