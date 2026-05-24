@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Capacitor-generated native project (CI regenerates via npx cap add android)
+android/
+ios/
+
+# Build output
+dist/
+*.apk
+*.aab
+
+# Capacitor
+.capacitor/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
