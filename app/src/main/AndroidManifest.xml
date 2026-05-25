@@ -30,6 +30,15 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name=".service.AprsService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".service.ReplyReceiver"
+            android:exported="false" />
+
     </application>
 
 </manifest>
