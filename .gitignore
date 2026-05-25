@@ -1,21 +1,22 @@
-# Dependencies
-node_modules/
+# Gradle / Android build output
+.gradle/
+build/
+app/build/
+local.properties
 
-# Capacitor-generated native project (CI regenerates via npx cap add android)
-android/
-ios/
+# Gradle wrapper jar is generated in CI
+gradle/wrapper/gradle-wrapper.jar
 
-# Build output
+# APK output
 dist/
 *.apk
 *.aab
 
-# Capacitor
-.capacitor/
-
-# OS / editor
-.DS_Store
-Thumbs.db
+# IDE
 .idea/
 *.iml
 .vscode/
+
+# OS
+.DS_Store
+Thumbs.db
