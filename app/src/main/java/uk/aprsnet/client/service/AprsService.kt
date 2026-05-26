@@ -1,8 +1,11 @@
 package uk.aprsnet.client.service
 
+import android.Manifest
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.IBinder
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -11,15 +14,17 @@ import kotlinx.coroutines.launch
 import uk.aprsnet.client.aprs.PacketParser
 import uk.aprsnet.client.data.AppDatabase
 import uk.aprsnet.client.data.MessageRepository
+import uk.aprsnet.client.data.SettingsStore
+import uk.aprsnet.client.location.BeaconManager
+import uk.aprsnet.client.location.LocationProvider
 import uk.aprsnet.client.net.AprsWebSocket
 
 /**
  * Foreground service: keeps the APRS WebSocket connected while the app is
- * backgrounded, so message notifications arrive like text messages.
+ * backgrounded, so messages arrive like texts AND smart-beaconing continues
+ * even when the app is closed.
  *
- * Holds its own WebSocket + repository. Raises a MessagingStyle notification
- * for each incoming message addressed to the user, and handles inline replies
- * forwarded from ReplyReceiver.
+ * Holds its own WebSocket, repository, and beacon manager.
  */
 class AprsService : Service() {
 
@@ -36,6 +41,8 @@ class AprsService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val ws = AprsWebSocket()
     private lateinit var repo: MessageRepository
+    private lateinit var settings: SettingsStore
+    private lateinit var beacon: BeaconManager
     private var started = false
     private var quietHours = false
 
@@ -43,6 +50,8 @@ class AprsService : Service() {
         super.onCreate()
         NotificationHelper.ensureChannels(this)
         repo = MessageRepository(AppDatabase.get(this).messageDao(), ws)
+        settings = SettingsStore(this)
+        beacon = BeaconManager(LocationProvider(this), ws, settings)
 
         // incoming messages -> notifications
         scope.launch {
@@ -77,13 +86,14 @@ class AprsService : Service() {
                 }
             }
             else -> {
-                val call = intent?.getStringExtra(EXTRA_CALL) ?: ""
-                val pass = intent?.getStringExtra(EXTRA_PASS) ?: ""
-                repo.myCallsign = call.trim().uppercase()
+                val call = settings.callsign
+                val pass = settings.passcode
+                repo.myCallsign = call
                 if (!started) {
                     startForeground(FG_ID, NotificationHelper.serviceNotification(this))
                     if (call.isNotEmpty()) ws.setCredentials(call, pass)
                     ws.connect()
+                    startBackgroundBeaconing()
                     started = true
                 } else if (call.isNotEmpty()) {
                     ws.setCredentials(call, pass)
@@ -93,7 +103,18 @@ class AprsService : Service() {
         return START_STICKY
     }
 
+    /** Continue smart-beaconing in the background if permitted and enabled. */
+    private fun startBackgroundBeaconing() {
+        val fine = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        if (fine && settings.positionMode != "off") {
+            beacon.start(scope)
+        }
+    }
+
     override fun onDestroy() {
+        beacon.stop()
         ws.disconnect()
         scope.cancel()
         super.onDestroy()

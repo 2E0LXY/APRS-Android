@@ -115,19 +115,22 @@ private fun AppRoot(initialThread: String?) {
     var tab by remember { mutableStateOf(if (initialThread != null) Tab.MESSAGES else Tab.MAP) }
     var openThread by remember { mutableStateOf(initialThread) }
 
-    // request POST_NOTIFICATIONS on Android 13+
+    // request notification + location permissions
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val notifLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { vm.startBeaconingIfPermitted() }
     LaunchedEffect(Unit) {
+        val wanted = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
-        ) {
-            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        vm.start("", "")   // anonymous connect; callsign arrives via Settings later
+        ) wanted += Manifest.permission.POST_NOTIFICATIONS
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) wanted += Manifest.permission.ACCESS_FINE_LOCATION
+        if (wanted.isNotEmpty()) permLauncher.launch(wanted.toTypedArray())
+        vm.start("", "")   // connects; uses stored callsign if set
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
