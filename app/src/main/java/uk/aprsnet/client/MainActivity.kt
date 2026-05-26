@@ -21,8 +21,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -32,12 +35,12 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,9 +51,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import uk.aprsnet.client.net.AprsWebSocket
 import uk.aprsnet.client.service.AprsService
 import uk.aprsnet.client.service.NotificationHelper
+import uk.aprsnet.client.ui.contacts.ContactsScreen
 import uk.aprsnet.client.ui.map.MapScreen
 import uk.aprsnet.client.ui.messages.ConversationListScreen
 import uk.aprsnet.client.ui.messages.ThreadScreen
+import uk.aprsnet.client.ui.stations.StationsScreen
+import uk.aprsnet.client.ui.status.StatusScreen
 import uk.aprsnet.client.ui.theme.AprsNetTheme
 import uk.aprsnet.client.ui.theme.BgHeader
 import uk.aprsnet.client.ui.theme.Err
@@ -58,8 +64,7 @@ import uk.aprsnet.client.ui.theme.Ok
 
 /**
  * APRS Net - native Android app.
- * Stage 2: bottom-nav with Map + Messages; chat threads with ACK/green
- * bubbles; foreground service for background message notifications.
+ * Stage 4: bottom-nav Map / Stations / Messages / Contacts / Status.
  */
 class MainActivity : ComponentActivity() {
 
@@ -69,10 +74,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         NotificationHelper.ensureChannels(this)
         pendingThread = intent?.getStringExtra(NotificationHelper.EXTRA_OPEN_THREAD)
-
-        // start the background service that holds the WebSocket
         startAprsService()
-
         setContent {
             AprsNetTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -84,7 +86,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // a notification tap while running - handled via recreate for simplicity
         intent.getStringExtra(NotificationHelper.EXTRA_OPEN_THREAD)?.let {
             setIntent(intent)
             recreate()
@@ -103,7 +104,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Tab { MAP, MESSAGES }
+private enum class Tab(val label: String) {
+    MAP("Map"), STATIONS("Stations"), MESSAGES("Messages"),
+    CONTACTS("Contacts"), STATUS("Status")
+}
 
 @Composable
 private fun AppRoot(initialThread: String?) {
@@ -112,10 +116,11 @@ private fun AppRoot(initialThread: String?) {
     val stations by vm.stations.collectAsState()
     val unread by vm.totalUnread.collectAsState(initial = 0)
 
-    var tab by remember { mutableStateOf(if (initialThread != null) Tab.MESSAGES else Tab.MAP) }
+    var tab by remember {
+        mutableStateOf(if (initialThread != null) Tab.MESSAGES else Tab.MAP)
+    }
     var openThread by remember { mutableStateOf(initialThread) }
 
-    // request notification + location permissions
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -130,30 +135,36 @@ private fun AppRoot(initialThread: String?) {
             != PackageManager.PERMISSION_GRANTED
         ) wanted += Manifest.permission.ACCESS_FINE_LOCATION
         if (wanted.isNotEmpty()) permLauncher.launch(wanted.toTypedArray())
-        vm.start("", "")   // connects; uses stored callsign if set
+        vm.start("", "")
+    }
+
+    /** Open a conversation thread (used by Messages + Contacts). */
+    fun openConversation(call: String) {
+        openThread = call
+        tab = Tab.MESSAGES
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopBar(
             conn = conn,
             stationCount = stations.size,
-            threadTitle = openThread,
+            threadTitle = if (tab == Tab.MESSAGES) openThread else null,
             onBack = { openThread = null }
         )
         Box(modifier = Modifier.weight(1f)) {
-            when {
-                tab == Tab.MAP -> MapScreen(vm)
-                openThread != null -> ThreadScreen(vm, openThread!!)
-                else -> ConversationListScreen(vm, onOpenThread = { openThread = it })
+            when (tab) {
+                Tab.MAP -> MapScreen(vm)
+                Tab.STATIONS -> StationsScreen(vm, onOpenStation = { /* map focus in stage 6 */ })
+                Tab.MESSAGES ->
+                    if (openThread != null) ThreadScreen(vm, openThread!!)
+                    else ConversationListScreen(vm, onOpenThread = { openThread = it })
+                Tab.CONTACTS -> ContactsScreen(vm, onMessage = { openConversation(it) })
+                Tab.STATUS -> StatusScreen(vm)
             }
         }
         NavigationBar {
-            NavigationBarItem(
-                selected = tab == Tab.MAP,
-                onClick = { tab = Tab.MAP },
-                icon = { Icon(Icons.Default.Map, contentDescription = "Map") },
-                label = { Text("Map") }
-            )
+            NavItem(tab == Tab.MAP, { tab = Tab.MAP }, Icons.Default.Map, "Map")
+            NavItem(tab == Tab.STATIONS, { tab = Tab.STATIONS }, Icons.Default.Place, "Stations")
             NavigationBarItem(
                 selected = tab == Tab.MESSAGES,
                 onClick = { tab = Tab.MESSAGES },
@@ -166,8 +177,25 @@ private fun AppRoot(initialThread: String?) {
                 },
                 label = { Text("Messages") }
             )
+            NavItem(tab == Tab.CONTACTS, { tab = Tab.CONTACTS }, Icons.Default.Contacts, "Contacts")
+            NavItem(tab == Tab.STATUS, { tab = Tab.STATUS }, Icons.Default.BarChart, "Status")
         }
     }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.NavItem(
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String
+) {
+    NavigationBarItem(
+        selected = selected,
+        onClick = onClick,
+        icon = { Icon(icon, contentDescription = label) },
+        label = { Text(label) }
+    )
 }
 
 @Composable

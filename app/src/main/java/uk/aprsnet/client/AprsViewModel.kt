@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import uk.aprsnet.client.aprs.PacketParser
 import uk.aprsnet.client.data.AppDatabase
+import uk.aprsnet.client.data.ContactEntity
 import uk.aprsnet.client.data.MessageEntity
 import uk.aprsnet.client.data.MessageRepository
 import uk.aprsnet.client.data.SettingsStore
@@ -21,6 +22,7 @@ import uk.aprsnet.client.location.Fix
 import uk.aprsnet.client.location.LocationProvider
 import uk.aprsnet.client.model.Station
 import uk.aprsnet.client.model.StationType
+import uk.aprsnet.client.net.AprsApi
 import uk.aprsnet.client.net.AprsWebSocket
 
 /**
@@ -28,6 +30,7 @@ import uk.aprsnet.client.net.AprsWebSocket
  *  Stage 1: WebSocket + station map.
  *  Stage 2: messaging (repository, ACK/green bubble, notifications).
  *  Stage 3: smart beaconing + the user's own GPS position on the map.
+ *  Stage 4: contacts, stations list, status/analytics.
  */
 class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -35,6 +38,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val db = AppDatabase.get(app)
     val messages = MessageRepository(db.messageDao(), ws)
+    private val contactDao = db.contactDao()
 
     val settings = SettingsStore(app)
     private val location = LocationProvider(app)
@@ -44,15 +48,19 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     val stations: StateFlow<Map<String, Station>> = _stations
 
     val connState: StateFlow<AprsWebSocket.ConnState> = ws.state
-
-    /** The user's own position for the map marker. */
     val myPosition: StateFlow<Fix?> = beacon.myPosition
 
-    /** Emitted when a message addressed to us arrives - drives notifications. */
     val incomingMessages = MutableSharedFlow<MessageEntity>(extraBufferCapacity = 32)
 
     val conversations = messages.conversations()
     val totalUnread = messages.totalUnread()
+
+    /** Saved contacts. */
+    val contacts = contactDao.all()
+
+    /** Latest server status (refreshed periodically). */
+    private val _status = MutableStateFlow<AprsApi.Status?>(null)
+    val status: StateFlow<AprsApi.Status?> = _status
 
     init {
         viewModelScope.launch {
@@ -92,6 +100,13 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                 runCatching { messages.retrySweep() }
             }
         }
+        // poll server status every 30s
+        viewModelScope.launch {
+            while (true) {
+                runCatching { _status.value = AprsApi.status() }
+                delay(30_000)
+            }
+        }
     }
 
     fun start(callsign: String, passcode: String) {
@@ -103,7 +118,6 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         startBeaconingIfPermitted()
     }
 
-    /** Begin smart beaconing if location permission is held and mode is on. */
     fun startBeaconingIfPermitted() {
         val ctx = getApplication<Application>()
         val granted = ContextCompat.checkSelfPermission(
@@ -114,7 +128,6 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Transmit a position beacon immediately (manual "beacon now"). */
     fun beaconNow() = beacon.beaconNow()
 
     fun thread(call: String) = messages.thread(call)
@@ -129,6 +142,21 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun markRead(call: String) {
         viewModelScope.launch { runCatching { messages.markRead(call) } }
+    }
+
+    // --- contacts ---
+    fun addContact(callsign: String, alias: String = "") {
+        viewModelScope.launch {
+            runCatching {
+                contactDao.upsert(
+                    ContactEntity(callsign = callsign.trim().uppercase(), alias = alias.trim())
+                )
+            }
+        }
+    }
+
+    fun deleteContact(contact: ContactEntity) {
+        viewModelScope.launch { runCatching { contactDao.delete(contact) } }
     }
 
     override fun onCleared() {
