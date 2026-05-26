@@ -130,6 +130,15 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun beaconNow() = beacon.beaconNow()
 
+    /** Re-apply settings after the user saves them (reconnect with callsign). */
+    fun applySettings() {
+        val call = settings.callsign
+        val pass = settings.passcode
+        messages.myCallsign = call
+        if (call.isNotEmpty()) ws.setCredentials(call, pass)
+        startBeaconingIfPermitted()
+    }
+
     fun thread(call: String) = messages.thread(call)
 
     fun send(to: String, text: String) {

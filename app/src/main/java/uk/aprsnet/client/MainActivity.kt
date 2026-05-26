@@ -23,11 +23,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
@@ -52,11 +58,14 @@ import uk.aprsnet.client.net.AprsWebSocket
 import uk.aprsnet.client.service.AprsService
 import uk.aprsnet.client.service.NotificationHelper
 import uk.aprsnet.client.ui.contacts.ContactsScreen
+import uk.aprsnet.client.ui.info.InfoScreen
 import uk.aprsnet.client.ui.map.MapScreen
 import uk.aprsnet.client.ui.messages.ConversationListScreen
 import uk.aprsnet.client.ui.messages.ThreadScreen
+import uk.aprsnet.client.ui.settings.SettingsScreen
 import uk.aprsnet.client.ui.stations.StationsScreen
 import uk.aprsnet.client.ui.status.StatusScreen
+import uk.aprsnet.client.ui.utilities.UtilitiesScreen
 import uk.aprsnet.client.ui.theme.AprsNetTheme
 import uk.aprsnet.client.ui.theme.BgHeader
 import uk.aprsnet.client.ui.theme.Err
@@ -64,7 +73,8 @@ import uk.aprsnet.client.ui.theme.Ok
 
 /**
  * APRS Net - native Android app.
- * Stage 4: bottom-nav Map / Stations / Messages / Contacts / Status.
+ * Stage 5: adds Settings, Utilities and Info behind a top-bar More menu;
+ * five primary tabs remain Map / Stations / Messages / Contacts / Status.
  */
 class MainActivity : ComponentActivity() {
 
@@ -104,9 +114,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Tab(val label: String) {
-    MAP("Map"), STATIONS("Stations"), MESSAGES("Messages"),
-    CONTACTS("Contacts"), STATUS("Status")
+private enum class Screen {
+    MAP, STATIONS, MESSAGES, CONTACTS, STATUS,   // primary tabs
+    SETTINGS, UTILITIES, INFO                    // More menu
 }
 
 @Composable
@@ -116,8 +126,8 @@ private fun AppRoot(initialThread: String?) {
     val stations by vm.stations.collectAsState()
     val unread by vm.totalUnread.collectAsState(initial = 0)
 
-    var tab by remember {
-        mutableStateOf(if (initialThread != null) Tab.MESSAGES else Tab.MAP)
+    var screen by remember {
+        mutableStateOf(if (initialThread != null) Screen.MESSAGES else Screen.MAP)
     }
     var openThread by remember { mutableStateOf(initialThread) }
 
@@ -138,49 +148,70 @@ private fun AppRoot(initialThread: String?) {
         vm.start("", "")
     }
 
-    /** Open a conversation thread (used by Messages + Contacts). */
     fun openConversation(call: String) {
         openThread = call
-        tab = Tab.MESSAGES
+        screen = Screen.MESSAGES
     }
+
+    val isPrimaryTab = screen in listOf(
+        Screen.MAP, Screen.STATIONS, Screen.MESSAGES, Screen.CONTACTS, Screen.STATUS
+    )
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopBar(
             conn = conn,
             stationCount = stations.size,
-            threadTitle = if (tab == Tab.MESSAGES) openThread else null,
-            onBack = { openThread = null }
+            title = screenTitle(screen, openThread),
+            showBack = (screen == Screen.MESSAGES && openThread != null) || !isPrimaryTab,
+            onBack = {
+                if (screen == Screen.MESSAGES && openThread != null) openThread = null
+                else screen = Screen.MAP
+            },
+            onMenu = { screen = it }
         )
         Box(modifier = Modifier.weight(1f)) {
-            when (tab) {
-                Tab.MAP -> MapScreen(vm)
-                Tab.STATIONS -> StationsScreen(vm, onOpenStation = { /* map focus in stage 6 */ })
-                Tab.MESSAGES ->
+            when (screen) {
+                Screen.MAP -> MapScreen(vm)
+                Screen.STATIONS -> StationsScreen(vm, onOpenStation = {})
+                Screen.MESSAGES ->
                     if (openThread != null) ThreadScreen(vm, openThread!!)
                     else ConversationListScreen(vm, onOpenThread = { openThread = it })
-                Tab.CONTACTS -> ContactsScreen(vm, onMessage = { openConversation(it) })
-                Tab.STATUS -> StatusScreen(vm)
+                Screen.CONTACTS -> ContactsScreen(vm, onMessage = { openConversation(it) })
+                Screen.STATUS -> StatusScreen(vm)
+                Screen.SETTINGS -> SettingsScreen(vm)
+                Screen.UTILITIES -> UtilitiesScreen()
+                Screen.INFO -> InfoScreen()
             }
         }
-        NavigationBar {
-            NavItem(tab == Tab.MAP, { tab = Tab.MAP }, Icons.Default.Map, "Map")
-            NavItem(tab == Tab.STATIONS, { tab = Tab.STATIONS }, Icons.Default.Place, "Stations")
-            NavigationBarItem(
-                selected = tab == Tab.MESSAGES,
-                onClick = { tab = Tab.MESSAGES },
-                icon = {
-                    BadgedBox(badge = {
-                        if (unread > 0) Badge { Text(unread.toString()) }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.Message, contentDescription = "Messages")
-                    }
-                },
-                label = { Text("Messages") }
-            )
-            NavItem(tab == Tab.CONTACTS, { tab = Tab.CONTACTS }, Icons.Default.Contacts, "Contacts")
-            NavItem(tab == Tab.STATUS, { tab = Tab.STATUS }, Icons.Default.BarChart, "Status")
+        if (isPrimaryTab) {
+            NavigationBar {
+                NavItem(screen == Screen.MAP, { screen = Screen.MAP }, Icons.Default.Map, "Map")
+                NavItem(screen == Screen.STATIONS, { screen = Screen.STATIONS }, Icons.Default.Place, "Stations")
+                NavigationBarItem(
+                    selected = screen == Screen.MESSAGES,
+                    onClick = { screen = Screen.MESSAGES },
+                    icon = {
+                        BadgedBox(badge = {
+                            if (unread > 0) Badge { Text(unread.toString()) }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.Message, contentDescription = "Messages")
+                        }
+                    },
+                    label = { Text("Messages") }
+                )
+                NavItem(screen == Screen.CONTACTS, { screen = Screen.CONTACTS }, Icons.Default.Contacts, "Contacts")
+                NavItem(screen == Screen.STATUS, { screen = Screen.STATUS }, Icons.Default.BarChart, "Status")
+            }
         }
     }
+}
+
+private fun screenTitle(screen: Screen, thread: String?): String = when (screen) {
+    Screen.MESSAGES -> thread ?: "APRS Net"
+    Screen.SETTINGS -> "Settings"
+    Screen.UTILITIES -> "Utilities"
+    Screen.INFO -> "About"
+    else -> "APRS Net"
 }
 
 @Composable
@@ -202,17 +233,20 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
 private fun TopBar(
     conn: AprsWebSocket.ConnState,
     stationCount: Int,
-    threadTitle: String?,
-    onBack: () -> Unit
+    title: String,
+    showBack: Boolean,
+    onBack: () -> Unit,
+    onMenu: (Screen) -> Unit
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(BgHeader)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (threadTitle != null) {
+        if (showBack) {
             IconButton(onClick = onBack) {
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
@@ -220,10 +254,10 @@ private fun TopBar(
                     tint = Color(0xFF60A5FA)
                 )
             }
-            Text(threadTitle, color = Color(0xFF60A5FA))
         } else {
-            Text("APRS Net", color = Color(0xFF60A5FA))
+            Spacer(Modifier.size(8.dp))
         }
+        Text(title, color = Color(0xFF60A5FA))
         Spacer(Modifier.weight(1f))
         Text("$stationCount stn", color = Color(0xFF94A3B8))
         Spacer(Modifier.size(8.dp))
@@ -238,5 +272,31 @@ private fun TopBar(
                 .clip(CircleShape)
                 .background(dot)
         )
+        Box {
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    Icons.Default.MoreVert,
+                    contentDescription = "More",
+                    tint = Color(0xFF60A5FA)
+                )
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Settings") },
+                    leadingIcon = { Icon(Icons.Default.Settings, null) },
+                    onClick = { menuOpen = false; onMenu(Screen.SETTINGS) }
+                )
+                DropdownMenuItem(
+                    text = { Text("Utilities") },
+                    leadingIcon = { Icon(Icons.Default.Build, null) },
+                    onClick = { menuOpen = false; onMenu(Screen.UTILITIES) }
+                )
+                DropdownMenuItem(
+                    text = { Text("About") },
+                    leadingIcon = { Icon(Icons.Default.Info, null) },
+                    onClick = { menuOpen = false; onMenu(Screen.INFO) }
+                )
+            }
+        }
     }
 }
