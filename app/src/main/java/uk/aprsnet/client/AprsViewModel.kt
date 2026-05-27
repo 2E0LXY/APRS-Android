@@ -67,15 +67,25 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
             ws.positionData.collect { json ->
                 val call = json.optString("call")
                 if (call.isNotEmpty() && json.has("lat") && json.has("lon")) {
+                    val sym = json.optString("sym", "")
+                    val symCode = if (sym.length >= 2) sym[1] else ' '
+                    val type = when {
+                        symCode == '_' -> StationType.WEATHER
+                        symCode == '\'' || symCode == 'g' -> StationType.GLIDER
+                        symCode == 's' || symCode == 'Y' -> StationType.SHIP
+                        else -> StationType.HAM
+                    }
                     _stations.value = _stations.value + (call to Station(
                         callsign = call,
                         lat = json.optDouble("lat"),
                         lon = json.optDouble("lon"),
+                        symbolTable = if (sym.isNotEmpty()) sym[0] else '/',
+                        symbolCode = symCode,
                         comment = json.optString("raw", ""),
                         path = json.optString("path", ""),
                         raw = json.optString("raw", ""),
                         lastHeard = System.currentTimeMillis(),
-                        type = StationType.HAM
+                        type = type
                     ))
                 }
             }
