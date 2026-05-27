@@ -30,6 +30,9 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Satellite
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenu
@@ -66,6 +69,9 @@ import uk.aprsnet.client.ui.settings.SettingsScreen
 import uk.aprsnet.client.ui.stations.StationsScreen
 import uk.aprsnet.client.ui.status.StatusScreen
 import uk.aprsnet.client.ui.utilities.UtilitiesScreen
+import uk.aprsnet.client.ui.weather.WeatherScreen
+import uk.aprsnet.client.ui.iss.IssScreen
+import uk.aprsnet.client.ui.admin.AdminScreen
 import uk.aprsnet.client.ui.theme.AprsNetTheme
 import uk.aprsnet.client.ui.theme.BgHeader
 import uk.aprsnet.client.ui.theme.Err
@@ -116,7 +122,7 @@ class MainActivity : ComponentActivity() {
 
 private enum class Screen {
     MAP, STATIONS, MESSAGES, CONTACTS, STATUS,   // primary tabs
-    SETTINGS, UTILITIES, INFO                    // More menu
+    SETTINGS, UTILITIES, WEATHER, ISS, ADMIN, INFO   // More menu
 }
 
 @Composable
@@ -180,6 +186,9 @@ private fun AppRoot(initialThread: String?) {
                 Screen.STATUS -> StatusScreen(vm)
                 Screen.SETTINGS -> SettingsScreen(vm)
                 Screen.UTILITIES -> UtilitiesScreen()
+                Screen.WEATHER -> WeatherScreen(vm)
+                Screen.ISS -> IssScreen()
+                Screen.ADMIN -> AdminScreen()
                 Screen.INFO -> InfoScreen()
             }
         }
@@ -210,6 +219,9 @@ private fun screenTitle(screen: Screen, thread: String?): String = when (screen)
     Screen.MESSAGES -> thread ?: "APRS Net"
     Screen.SETTINGS -> "Settings"
     Screen.UTILITIES -> "Utilities"
+    Screen.WEATHER -> "Weather"
+    Screen.ISS -> "ISS Tracker"
+    Screen.ADMIN -> "Admin"
     Screen.INFO -> "About"
     else -> "APRS Net"
 }
@@ -290,6 +302,21 @@ private fun TopBar(
                     text = { Text("Utilities") },
                     leadingIcon = { Icon(Icons.Default.Build, null) },
                     onClick = { menuOpen = false; onMenu(Screen.UTILITIES) }
+                )
+                DropdownMenuItem(
+                    text = { Text("Weather") },
+                    leadingIcon = { Icon(Icons.Default.Cloud, null) },
+                    onClick = { menuOpen = false; onMenu(Screen.WEATHER) }
+                )
+                DropdownMenuItem(
+                    text = { Text("ISS Tracker") },
+                    leadingIcon = { Icon(Icons.Default.Satellite, null) },
+                    onClick = { menuOpen = false; onMenu(Screen.ISS) }
+                )
+                DropdownMenuItem(
+                    text = { Text("Admin") },
+                    leadingIcon = { Icon(Icons.Default.AdminPanelSettings, null) },
+                    onClick = { menuOpen = false; onMenu(Screen.ADMIN) }
                 )
                 DropdownMenuItem(
                     text = { Text("About") },
