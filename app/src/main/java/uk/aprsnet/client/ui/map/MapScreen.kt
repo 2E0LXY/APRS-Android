@@ -1,6 +1,5 @@
 package uk.aprsnet.client.ui.map
 
-import android.preference.PreferenceManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -43,17 +41,18 @@ fun MapScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
-                Configuration.getInstance().load(
-                    ctx, PreferenceManager.getDefaultSharedPreferences(ctx)
-                )
-                Configuration.getInstance().userAgentValue = "APRSNetAndroid/2.0"
-                MapView(ctx).apply {
-                    setTileSource(TileSourceFactory.MAPNIK)
-                    setMultiTouchControls(true)
-                    controller.setZoom(8.0)
-                    controller.setCenter(GeoPoint(53.7, -1.5))
-                    mapRef.value = this
-                }
+                // osmdroid is configured up-front in MainActivity.onCreate.
+                // Wrap MapView creation defensively so a tile-init failure
+                // cannot kill the process.
+                runCatching {
+                    MapView(ctx).apply {
+                        setTileSource(TileSourceFactory.MAPNIK)
+                        setMultiTouchControls(true)
+                        controller.setZoom(8.0)
+                        controller.setCenter(GeoPoint(53.7, -1.5))
+                        mapRef.value = this
+                    }
+                }.getOrElse { MapView(ctx) }
             },
             update = { map ->
                 map.overlays.clear()

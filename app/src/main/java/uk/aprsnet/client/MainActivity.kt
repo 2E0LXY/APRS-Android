@@ -89,8 +89,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         NotificationHelper.ensureChannels(this)
+        configureOsmdroid()
         pendingThread = intent?.getStringExtra(NotificationHelper.EXTRA_OPEN_THREAD)
-        startAprsService()
+        // foreground service is NOT started here. On API 34+ (and stricter
+        // still on Android 16/17) starting foregroundServiceType=location
+        // before location permission is granted throws and kills the app.
+        // The service is started from AppRoot once permissions resolve.
         setContent {
             AprsNetTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -108,14 +112,39 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startAprsService() {
+    /**
+     * Configure osmdroid up-front: explicit cache path in app-private
+     * storage, a sensible user-agent (the package name), and load any
+     * saved preferences. Doing this in onCreate - before any map
+     * composes - prevents a class of background-thread crashes that
+     * otherwise tear the app down moments after the first frame.
+     */
+    private fun configureOsmdroid() {
+        runCatching {
+            val cfg = org.osmdroid.config.Configuration.getInstance()
+            cfg.load(
+                applicationContext,
+                android.preference.PreferenceManager
+                    .getDefaultSharedPreferences(applicationContext)
+            )
+            cfg.userAgentValue = packageName
+            cfg.osmdroidBasePath = java.io.File(cacheDir, "osmdroid")
+                .apply { mkdirs() }
+            cfg.osmdroidTileCache = java.io.File(cacheDir, "osmdroid/tiles")
+                .apply { mkdirs() }
+        }
+    }
+
+    fun startAprsService() {
         val svc = Intent(this, AprsService::class.java).apply {
             action = AprsService.ACTION_START
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(svc)
-        } else {
-            startService(svc)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(svc)
+            } else {
+                startService(svc)
+            }
         }
     }
 }
@@ -140,7 +169,12 @@ private fun AppRoot(initialThread: String?) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { vm.startBeaconingIfPermitted() }
+    ) {
+        // permissions resolved - now safe to start the foreground service;
+        // it will only beacon if location permission is held.
+        (ctx as? MainActivity)?.startAprsService()
+        vm.startBeaconingIfPermitted()
+    }
     LaunchedEffect(Unit) {
         val wanted = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -150,7 +184,11 @@ private fun AppRoot(initialThread: String?) {
         if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
         ) wanted += Manifest.permission.ACCESS_FINE_LOCATION
-        if (wanted.isNotEmpty()) permLauncher.launch(wanted.toTypedArray())
+        if (wanted.isNotEmpty()) {
+            permLauncher.launch(wanted.toTypedArray())
+        } else {
+            (ctx as? MainActivity)?.startAprsService()
+        }
         vm.start("", "")
     }
 
