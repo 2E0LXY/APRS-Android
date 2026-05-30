@@ -30,7 +30,11 @@ object PacketParser {
     private val MSG_RE =
         Regex("""^([A-Z0-9\-]+)>[^:]*::([A-Z0-9 \-]{9}):(.*)$""")
 
-    fun parse(raw: String): Parsed {
+    fun parse(raw: String): Parsed = runCatching {
+        parseInternal(raw)
+    }.getOrElse { Parsed.Unknown }
+
+    private fun parseInternal(raw: String): Parsed {
         // --- message packet? ---
         val mm = MSG_RE.find(raw)
         if (mm != null) {
@@ -50,10 +54,10 @@ object PacketParser {
 
             // trailing {NN message id
             var msgId: String? = null
-            val idM = Regex("""\{([0-9A-Za-z]+)}?\s*$""").find(body)
+            val idM = Regex("""\{([0-9A-Za-z]+)\}?\s*$""").find(body)
             if (idM != null) {
                 msgId = idM.groupValues[1]
-                body = body.replace(Regex("""\{[0-9A-Za-z]+}?\s*$"""), "")
+                body = body.replace(Regex("""\{[0-9A-Za-z]+\}?\s*$"""), "")
             }
             return Parsed.Msg(from, to, body, msgId, false, null)
         }
