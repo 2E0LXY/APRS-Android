@@ -215,8 +215,8 @@ private fun AppRoot(initialThread: String?) {
         )
         Box(modifier = Modifier.weight(1f)) {
             when (screen) {
-                Screen.MAP -> MapScreen(vm)
-                Screen.STATIONS -> StationsScreen(vm, onOpenStation = {})
+                Screen.MAP -> MapScreen(vm, onSendMessage = { openConversation(it) })
+                Screen.STATIONS -> StationsScreen(vm, onSendMessage = { openConversation(it) })
                 Screen.MESSAGES ->
                     if (openThread != null) ThreadScreen(vm, openThread!!)
                     else ConversationListScreen(vm, onOpenThread = { openThread = it })

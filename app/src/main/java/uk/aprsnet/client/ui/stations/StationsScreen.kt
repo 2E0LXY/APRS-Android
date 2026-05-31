@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uk.aprsnet.client.AprsViewModel
 import uk.aprsnet.client.model.Station
+import uk.aprsnet.client.ui.common.StationDetailDialog
 import uk.aprsnet.client.ui.theme.Accent
 import uk.aprsnet.client.ui.theme.TextDim
 import kotlin.math.atan2
@@ -34,16 +35,20 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-/** Searchable list of all heard stations, with distance/bearing from the user. */
+/**
+ * Searchable list of all heard stations, with distance from the user.
+ * Tapping a row opens the shared station-detail dialog with Send-message.
+ */
 @Composable
 fun StationsScreen(
     vm: AprsViewModel,
-    onOpenStation: (String) -> Unit,
+    onSendMessage: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val stations by vm.stations.collectAsState()
     val myPos by vm.myPosition.collectAsState()
     var query by remember { mutableStateOf("") }
+    var selected by remember { mutableStateOf<Station?>(null) }
 
     val list = remember(stations, query, myPos) {
         stations.values
@@ -58,9 +63,7 @@ fun StationsScreen(
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
             placeholder = { Text("Filter callsign...") },
             singleLine = true
         )
@@ -71,36 +74,41 @@ fun StationsScreen(
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
                 items(list) { st ->
-                    StationRow(st, myPos?.let {
-                        distanceKm(it.lat, it.lon, st.lat, st.lon)
-                    }) { onOpenStation(st.callsign) }
+                    val km = myPos?.let { distanceKm(it.lat, it.lon, st.lat, st.lon) }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selected = st }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(st.callsign, color = Accent,
+                                fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(
+                                ageText(st.lastHeard) +
+                                    "  -  " + "%.3f, %.3f".format(st.lat, st.lon),
+                                color = TextDim, fontSize = 12.sp
+                            )
+                        }
+                        if (km != null) {
+                            Spacer(Modifier.size(8.dp))
+                            Text("${km.roundToInt()} km", color = TextDim, fontSize = 12.sp)
+                        }
+                    }
                 }
             }
         }
     }
-}
 
-@Composable
-private fun StationRow(st: Station, distKm: Double?, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(st.callsign, color = Accent, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Text(
-                ageText(st.lastHeard) +
-                    "  -  " + "%.3f, %.3f".format(st.lat, st.lon),
-                color = TextDim, fontSize = 12.sp
-            )
-        }
-        if (distKm != null) {
-            Spacer(Modifier.size(8.dp))
-            Text("${distKm.roundToInt()} km", color = TextDim, fontSize = 12.sp)
-        }
+    selected?.let { st ->
+        StationDetailDialog(
+            station = st,
+            myPos = myPos,
+            onSendMessage = onSendMessage,
+            onAddContact = { vm.addContact(it) },
+            onDismiss = { selected = null }
+        )
     }
 }
 

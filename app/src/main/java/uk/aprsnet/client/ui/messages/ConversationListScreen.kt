@@ -13,10 +13,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,14 +36,17 @@ import androidx.compose.ui.unit.sp
 import uk.aprsnet.client.AprsViewModel
 import uk.aprsnet.client.ui.theme.Accent
 import uk.aprsnet.client.ui.theme.AccentBlue
-import uk.aprsnet.client.ui.theme.BorderCol
 import uk.aprsnet.client.ui.theme.TextBase
 import uk.aprsnet.client.ui.theme.TextDim
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** The conversation list - one row per callsign, newest first, unread badge. */
+/**
+ * Conversation list - one row per remote callsign, newest first.
+ * FAB opens a "new message to..." dialog so a conversation can be started
+ * without first having to find the station on the map.
+ */
 @Composable
 fun ConversationListScreen(
     vm: AprsViewModel,
@@ -41,11 +54,13 @@ fun ConversationListScreen(
     modifier: Modifier = Modifier
 ) {
     val conversations by vm.conversations.collectAsState(initial = emptyList())
+    var showNew by remember { mutableStateOf(false) }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
         if (conversations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No messages yet", color = TextDim)
+                Text("No messages yet - tap + to start one",
+                    color = TextDim, fontSize = 13.sp)
             }
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
@@ -98,6 +113,40 @@ fun ConversationListScreen(
                 }
             }
         }
+
+        FloatingActionButton(
+            onClick = { showNew = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+        ) {
+            Icon(Icons.Default.Edit, contentDescription = "New message")
+        }
+    }
+
+    if (showNew) {
+        var to by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showNew = false },
+            title = { Text("New message") },
+            text = {
+                OutlinedTextField(
+                    value = to,
+                    onValueChange = { to = it.uppercase() },
+                    label = { Text("To callsign") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val t = to.trim()
+                    showNew = false
+                    if (t.isNotEmpty()) onOpenThread(t)
+                }) { Text("Open") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNew = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
