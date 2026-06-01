@@ -8,10 +8,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.core.view.WindowCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import uk.aprsnet.client.net.AprsWebSocket
@@ -88,6 +91,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // On API 35+ apps render edge-to-edge by default; opt in explicitly
+        // so we control insets uniformly across versions and let Compose
+        // apply safeDrawingPadding to keep our UI clear of the system bars.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         NotificationHelper.ensureChannels(this)
         configureOsmdroid()
         pendingThread = intent?.getStringExtra(NotificationHelper.EXTRA_OPEN_THREAD)
@@ -201,7 +208,7 @@ private fun AppRoot(initialThread: String?) {
         Screen.MAP, Screen.STATIONS, Screen.MESSAGES, Screen.CONTACTS, Screen.STATUS
     )
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
         TopBar(
             conn = conn,
             stationCount = stations.size,
@@ -244,7 +251,7 @@ private fun AppRoot(initialThread: String?) {
                             Icon(Icons.AutoMirrored.Filled.Message, contentDescription = "Messages")
                         }
                     },
-                    label = { Text("Messages") }
+                    label = { Text("Messages", maxLines = 1, fontSize = 10.sp) }
                 )
                 NavItem(screen == Screen.CONTACTS, { screen = Screen.CONTACTS }, Icons.Default.Contacts, "Contacts")
                 NavItem(screen == Screen.STATUS, { screen = Screen.STATUS }, Icons.Default.BarChart, "Status")
@@ -275,7 +282,7 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
         selected = selected,
         onClick = onClick,
         icon = { Icon(icon, contentDescription = label) },
-        label = { Text(label) }
+        label = { Text(label, maxLines = 1, fontSize = 10.sp) }
     )
 }
 

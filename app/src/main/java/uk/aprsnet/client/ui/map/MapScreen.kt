@@ -19,6 +19,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color as AColor
+import android.graphics.Paint
+import android.graphics.drawable.BitmapDrawable
+import uk.aprsnet.client.model.StationType
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.sample
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -128,7 +134,8 @@ fun MapScreen(
                         val nm = Marker(map).apply {
                             position = GeoPoint(fix.lat, fix.lon)
                             title = "My position"
-                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            icon = myDotIcon(map)
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                         }
                         myMarker.value = nm
                         map.overlays.add(nm)
@@ -182,6 +189,7 @@ private fun syncMarkers(
             val m = Marker(map).apply {
                 position = GeoPoint(st.lat, st.lon)
                 title = st.callsign
+                icon = dotIcon(map, st.type)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 setOnMarkerClickListener { _, _ -> onClick(st.callsign); true }
             }
@@ -192,4 +200,62 @@ private fun syncMarkers(
             if (existing.position != gp) existing.position = gp
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Marker-icon helpers: small coloured circles per station type, drawn into
+// a Bitmap so the marker doesn't fall back to osmdroid's default hand icon.
+// Cached per type so we don't redraw on every marker creation.
+// ---------------------------------------------------------------------------
+private val typeColours = mapOf(
+    StationType.HAM     to 0xFF3B82F6.toInt(),  // blue
+    StationType.WEATHER to 0xFF22C55E.toInt(),  // green
+    StationType.GLIDER  to 0xFFF59E0B.toInt(),  // amber
+    StationType.OBJECT  to 0xFFE5E7EB.toInt(),  // light grey
+    StationType.SHIP    to 0xFF06B6D4.toInt(),  // cyan
+    StationType.LORA    to 0xFFA855F7.toInt(),  // purple
+    StationType.OTHER   to 0xFF94A3B8.toInt()   // slate
+)
+private val iconCache = HashMap<Int, BitmapDrawable>()
+
+private fun dotIcon(map: MapView, type: StationType): BitmapDrawable {
+    val colour = typeColours[type] ?: 0xFF94A3B8.toInt()
+    iconCache[colour]?.let { return it }
+    val d = map.context.resources.displayMetrics.density
+    val sizePx = (14 * d).toInt()           // 14dp dot
+    val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bmp)
+    val r = sizePx / 2f
+    val outline = Paint().apply {
+        isAntiAlias = true; color = AColor.WHITE; style = Paint.Style.FILL
+    }
+    val fill = Paint().apply {
+        isAntiAlias = true; color = colour; style = Paint.Style.FILL
+    }
+    canvas.drawCircle(r, r, r, outline)
+    canvas.drawCircle(r, r, r - 2f * d, fill)
+    val drawable = BitmapDrawable(map.context.resources, bmp)
+    iconCache[colour] = drawable
+    return drawable
+}
+
+private fun myDotIcon(map: MapView): BitmapDrawable {
+    val key = 0x00BFFF
+    iconCache[key]?.let { return it }
+    val d = map.context.resources.displayMetrics.density
+    val sizePx = (20 * d).toInt()           // larger 20dp dot for own marker
+    val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bmp)
+    val r = sizePx / 2f
+    val outline = Paint().apply {
+        isAntiAlias = true; color = AColor.WHITE; style = Paint.Style.FILL
+    }
+    val fill = Paint().apply {
+        isAntiAlias = true; color = 0xFF0EA5E9.toInt(); style = Paint.Style.FILL
+    }
+    canvas.drawCircle(r, r, r, outline)
+    canvas.drawCircle(r, r, r - 3f * d, fill)
+    val drawable = BitmapDrawable(map.context.resources, bmp)
+    iconCache[key] = drawable
+    return drawable
 }
