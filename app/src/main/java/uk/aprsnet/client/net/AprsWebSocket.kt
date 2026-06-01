@@ -108,7 +108,12 @@ class AprsWebSocket {
             try {
                 val o = JSONObject(text)
                 when (o.optString("type")) {
-                    "auth", "authok", "logresp" -> state.value = ConnState.AUTHED
+                    "auth_ack", "authok", "logresp" -> {
+                        // server sends auth_ack with status=success on success
+                        if (o.optString("status", "success") == "success") {
+                            state.value = ConnState.AUTHED
+                        }
+                    }
                     "rx" -> {
                         o.optString("packet").takeIf { it.isNotEmpty() }?.let {
                             rawPackets.tryEmit(it)

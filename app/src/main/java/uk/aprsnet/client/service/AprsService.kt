@@ -59,9 +59,9 @@ class AprsService : Service() {
                 val parsed = PacketParser.parse(raw)
                 if (parsed is PacketParser.Parsed.Msg) {
                     val incoming = repo.handleIncoming(raw)
-                    if (incoming != null) {
+                    if (incoming != null && settings.notifyMessages) {
                         NotificationHelper.showMessage(
-                            this@AprsService, incoming, quietHours
+                            this@AprsService, incoming, settings.inQuietHours()
                         )
                     }
                 }

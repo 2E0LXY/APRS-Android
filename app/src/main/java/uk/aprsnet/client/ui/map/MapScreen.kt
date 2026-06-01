@@ -94,7 +94,19 @@ fun MapScreen(
             .distinctUntilChanged()
             .collect { current ->
                 runCatching {
-                    syncMarkers(map, markers, current.values) { call ->
+                    val s = vm.settings
+                    val filtered = current.values.filter { st ->
+                        when (st.type) {
+                            uk.aprsnet.client.model.StationType.HAM -> s.showHam
+                            uk.aprsnet.client.model.StationType.WEATHER -> s.showWeather
+                            uk.aprsnet.client.model.StationType.GLIDER -> s.showGlider
+                            uk.aprsnet.client.model.StationType.SHIP -> s.showShip
+                            uk.aprsnet.client.model.StationType.LORA -> s.showLora
+                            uk.aprsnet.client.model.StationType.OBJECT,
+                            uk.aprsnet.client.model.StationType.OTHER -> s.showOther
+                        }
+                    }
+                    syncMarkers(map, markers, filtered, hiddenCalls = current.keys - filtered.map { it.callsign }.toSet()) { call ->
                         selected = current[call]
                     }
                     map.invalidate()
@@ -157,8 +169,13 @@ private fun syncMarkers(
     map: MapView,
     markers: HashMap<String, Marker>,
     stations: Collection<Station>,
+    hiddenCalls: Set<String> = emptySet(),
     onClick: (String) -> Unit
 ) {
+    // Remove markers for stations now hidden by a filter
+    hiddenCalls.forEach { call ->
+        markers.remove(call)?.let { map.overlays.remove(it) }
+    }
     stations.forEach { st ->
         val existing = markers[st.callsign]
         if (existing == null) {

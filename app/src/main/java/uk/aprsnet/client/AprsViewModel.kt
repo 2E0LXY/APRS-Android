@@ -140,6 +140,28 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun beaconNow() = beacon.beaconNow()
 
+    /**
+     * Sign in to the user's website account.
+     *  - If success: stores the token + name in settings and auto-fills the
+     *    callsign + passcode from the server's response, then re-authenticates
+     *    the WebSocket so messaging works immediately.
+     *  - If failure: returns the error string so the UI can show it.
+     */
+    suspend fun loginMember(callsign: String, password: String): String? {
+        val r = AprsApi.memberLogin(callsign, password)
+        if (!r.ok) return r.error ?: "Login failed"
+        settings.callsign = r.callsign.ifEmpty { callsign }
+        if (r.passcode.isNotEmpty()) settings.passcode = r.passcode
+        settings.memberToken = r.token
+        settings.memberName = r.name
+        applySettings()
+        return null
+    }
+
+    fun signOutMember() {
+        settings.clearMember()
+    }
+
     /** Re-apply settings after the user saves them (reconnect with callsign). */
     fun applySettings() {
         val call = settings.callsign

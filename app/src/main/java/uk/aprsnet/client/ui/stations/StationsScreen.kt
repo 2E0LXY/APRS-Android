@@ -50,9 +50,21 @@ fun StationsScreen(
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<Station?>(null) }
 
-    val list = remember(stations, query, myPos) {
+    val s = vm.settings
+    val list = remember(stations, query, myPos, s.showHam, s.showWeather, s.showGlider, s.showShip, s.showLora, s.showOther) {
         stations.values
             .filter { query.isBlank() || it.callsign.contains(query.uppercase()) }
+            .filter { st ->
+                when (st.type) {
+                    uk.aprsnet.client.model.StationType.HAM -> s.showHam
+                    uk.aprsnet.client.model.StationType.WEATHER -> s.showWeather
+                    uk.aprsnet.client.model.StationType.GLIDER -> s.showGlider
+                    uk.aprsnet.client.model.StationType.SHIP -> s.showShip
+                    uk.aprsnet.client.model.StationType.LORA -> s.showLora
+                    uk.aprsnet.client.model.StationType.OBJECT,
+                    uk.aprsnet.client.model.StationType.OTHER -> s.showOther
+                }
+            }
             .sortedBy { st ->
                 val p = myPos
                 if (p != null) distanceKm(p.lat, p.lon, st.lat, st.lon) else 0.0

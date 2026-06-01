@@ -1,5 +1,7 @@
 package uk.aprsnet.client.ui.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -11,126 +13,377 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.KeyboardOptions
+import kotlinx.coroutines.launch
 import uk.aprsnet.client.AprsViewModel
 import uk.aprsnet.client.ui.theme.Accent
 import uk.aprsnet.client.ui.theme.BgPanel
+import uk.aprsnet.client.ui.theme.Err
 import uk.aprsnet.client.ui.theme.Ok
 import uk.aprsnet.client.ui.theme.TextBase
 import uk.aprsnet.client.ui.theme.TextDim
 
 /**
- * Settings - the screen where the user enters their callsign and APRS-IS
- * passcode (which unlocks transmitting messages and position beacons),
- * plus position mode and beacon options.
+ * Comprehensive user-settings hub. Every preference the app exposes lives
+ * here: website account, APRS credentials, position/beaconing, map filters,
+ * notifications and quiet hours. The Admin screen (server admin login) is
+ * a separate screen behind the More menu.
  */
 @Composable
 fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
-    val s = vm.settings
-
-    var callsign by remember { mutableStateOf(s.callsign) }
-    var passcode by remember { mutableStateOf(s.passcode) }
-    var posMode by remember { mutableStateOf(s.positionMode) }
-    var comment by remember { mutableStateOf(s.beaconComment) }
-    var symTable by remember { mutableStateOf(s.symbolTable) }
-    var symCode by remember { mutableStateOf(s.symbolCode) }
-    var saved by remember { mutableStateOf(false) }
-
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(12.dp)
     ) {
-        Card("APRS Credentials") {
-            Text(
-                "Your callsign and APRS-IS passcode. Required to send " +
-                    "messages and beacon your position.",
-                color = TextDim, fontSize = 12.sp
-            )
-            Spacer(Modifier.size(8.dp))
-            Field("Callsign", callsign) { callsign = it.uppercase() }
-            Field(
-                "APRS-IS passcode", passcode, password = true,
-                numeric = true
-            ) { passcode = it }
-        }
+        MemberAccountCard(vm)
+        AprsCredentialsCard(vm)
+        PositionCard(vm)
+        FiltersCard(vm)
+        NotificationsCard(vm)
+    }
+}
 
-        Card("Position / Beaconing") {
-            Text("Position mode", color = TextDim, fontSize = 12.sp)
-            Spacer(Modifier.size(6.dp))
-            Row {
-                ModeChip("Smart", posMode == "smart") { posMode = "smart" }
-                Spacer(Modifier.size(8.dp))
-                ModeChip("Manual", posMode == "manual") { posMode = "manual" }
-                Spacer(Modifier.size(8.dp))
-                ModeChip("Off", posMode == "off") { posMode = "off" }
-            }
-            Spacer(Modifier.size(10.dp))
-            Field("Beacon comment", comment) { comment = it }
-            Row {
-                Column(Modifier.weight(1f)) {
-                    Field("Symbol table", symTable) {
-                        symTable = it.take(1)
-                    }
-                }
-                Spacer(Modifier.size(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Field("Symbol code", symCode) {
-                        symCode = it.take(1)
-                    }
-                }
-            }
-            Text(
-                "Smart beaconing sends your position more often when " +
-                    "moving fast, less when still.",
-                color = TextDim, fontSize = 11.sp
-            )
-        }
+// ============================================================================
+// Website member account
+// ============================================================================
+@Composable
+private fun MemberAccountCard(vm: AprsViewModel) {
+    val s = vm.settings
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var signedIn by remember { mutableStateOf(s.memberSignedIn) }
+    var name by remember { mutableStateOf(s.memberName) }
+    var callsign by remember { mutableStateOf(s.callsign) }
+    var password by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf("") }
+    var statusIsError by remember { mutableStateOf(false) }
+    var working by remember { mutableStateOf(false) }
 
-        Button(
+    Card("Website Member Account") {
+        Text(
+            "You must register an account at www.aprsnet.uk FIRST. " +
+                "Signing in here lets the app fetch your passcode " +
+                "automatically and keeps your messages in sync between " +
+                "the website and this app (store-and-forward).",
+            color = TextDim, fontSize = 12.sp
+        )
+        Spacer(Modifier.size(8.dp))
+        OutlinedButton(
             onClick = {
-                s.callsign = callsign
-                s.passcode = passcode
-                s.positionMode = posMode
-                s.beaconComment = comment
-                s.symbolTable = symTable.ifEmpty { "/" }
-                s.symbolCode = symCode.ifEmpty { ">" }
-                vm.applySettings()
-                saved = true
+                runCatching {
+                    ctx.startActivity(
+                        Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://www.aprsnet.uk/setup"))
+                    )
+                }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-        ) {
-            Text("Save settings")
-        }
-        if (saved) {
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Open www.aprsnet.uk to register / manage account") }
+        Spacer(Modifier.size(12.dp))
+
+        if (signedIn) {
             Text(
-                "Saved - reconnecting with your callsign.",
-                color = Ok, fontSize = 12.sp,
-                modifier = Modifier.padding(top = 8.dp)
+                "Signed in as ${name.ifEmpty { "(account)" }}",
+                color = Ok, fontWeight = FontWeight.Bold, fontSize = 14.sp
+            )
+            Spacer(Modifier.size(6.dp))
+            OutlinedButton(
+                onClick = {
+                    vm.signOutMember()
+                    signedIn = false
+                    name = ""
+                    status = "Signed out"
+                    statusIsError = false
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Sign out") }
+        } else {
+            OutlinedTextField(
+                value = callsign,
+                onValueChange = { callsign = it.uppercase() },
+                label = { Text("Callsign") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Website password") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            )
+            Button(
+                onClick = {
+                    if (callsign.isBlank() || password.isBlank()) {
+                        status = "Enter your callsign and password"
+                        statusIsError = true
+                        return@Button
+                    }
+                    working = true
+                    status = "Signing in..."
+                    statusIsError = false
+                    scope.launch {
+                        val err = vm.loginMember(callsign, password)
+                        working = false
+                        if (err == null) {
+                            signedIn = true
+                            name = vm.settings.memberName
+                            status = "Signed in - passcode loaded automatically"
+                            statusIsError = false
+                            password = ""
+                        } else {
+                            status = err
+                            statusIsError = true
+                        }
+                    }
+                },
+                enabled = !working,
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+            ) { Text(if (working) "Signing in..." else "Sign in") }
+        }
+        if (status.isNotEmpty()) {
+            Text(
+                status,
+                color = if (statusIsError) Err else Ok,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 6.dp)
             )
         }
     }
 }
 
+// ============================================================================
+// APRS credentials (manual entry alternative to member sign-in)
+// ============================================================================
+@Composable
+private fun AprsCredentialsCard(vm: AprsViewModel) {
+    val s = vm.settings
+    var call by remember { mutableStateOf(s.callsign) }
+    var pass by remember { mutableStateOf(s.passcode) }
+    var saved by remember { mutableStateOf(false) }
+
+    Card("APRS Credentials") {
+        Text(
+            "These are populated automatically when you sign in to your " +
+                "member account above. Or enter them manually. They are " +
+                "stored on this device only.",
+            color = TextDim, fontSize = 12.sp
+        )
+        Spacer(Modifier.size(6.dp))
+        OutlinedTextField(
+            value = call, onValueChange = { call = it.uppercase() },
+            label = { Text("Callsign") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+        OutlinedTextField(
+            value = pass, onValueChange = { pass = it },
+            label = { Text("APRS-IS passcode") }, singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+        Button(
+            onClick = {
+                s.callsign = call
+                s.passcode = pass
+                vm.applySettings()
+                saved = true
+            },
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+        ) { Text("Save credentials") }
+        if (saved) {
+            Text(
+                "Saved - reconnecting WebSocket with your callsign.",
+                color = Ok, fontSize = 12.sp,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+    }
+}
+
+// ============================================================================
+// Position / beaconing
+// ============================================================================
+@Composable
+private fun PositionCard(vm: AprsViewModel) {
+    val s = vm.settings
+    var mode by remember { mutableStateOf(s.positionMode) }
+    var comment by remember { mutableStateOf(s.beaconComment) }
+    var symT by remember { mutableStateOf(s.symbolTable) }
+    var symC by remember { mutableStateOf(s.symbolCode) }
+    var saved by remember { mutableStateOf(false) }
+
+    Card("Position / Beaconing") {
+        Text("Position mode", color = TextDim, fontSize = 12.sp)
+        Spacer(Modifier.size(6.dp))
+        Row {
+            ModeChip("Smart", mode == "smart") { mode = "smart" }
+            Spacer(Modifier.size(8.dp))
+            ModeChip("Manual", mode == "manual") { mode = "manual" }
+            Spacer(Modifier.size(8.dp))
+            ModeChip("Off", mode == "off") { mode = "off" }
+        }
+        Spacer(Modifier.size(10.dp))
+        OutlinedTextField(
+            value = comment, onValueChange = { comment = it },
+            label = { Text("Beacon comment") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            OutlinedTextField(
+                value = symT, onValueChange = { symT = it.take(1) },
+                label = { Text("Symbol table") }, singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.size(10.dp))
+            OutlinedTextField(
+                value = symC, onValueChange = { symC = it.take(1) },
+                label = { Text("Symbol code") }, singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Text(
+            "Smart beaconing sends position more often when moving fast, " +
+                "less often when still. Requires location permission.",
+            color = TextDim, fontSize = 11.sp
+        )
+        Button(
+            onClick = {
+                s.positionMode = mode
+                s.beaconComment = comment
+                s.symbolTable = symT.ifEmpty { "/" }
+                s.symbolCode = symC.ifEmpty { ">" }
+                vm.applySettings()
+                saved = true
+            },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+        ) { Text("Save position settings") }
+        if (saved) Text("Saved", color = Ok, fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+// ============================================================================
+// Map / station-list filters
+// ============================================================================
+@Composable
+private fun FiltersCard(vm: AprsViewModel) {
+    val s = vm.settings
+    var ham by remember { mutableStateOf(s.showHam) }
+    var weather by remember { mutableStateOf(s.showWeather) }
+    var glider by remember { mutableStateOf(s.showGlider) }
+    var ship by remember { mutableStateOf(s.showShip) }
+    var lora by remember { mutableStateOf(s.showLora) }
+    var other by remember { mutableStateOf(s.showOther) }
+
+    Card("Map Filters") {
+        Text("Choose which station types appear on the map and in the " +
+            "stations list. Changes apply immediately.",
+            color = TextDim, fontSize = 12.sp)
+        Spacer(Modifier.size(6.dp))
+        FilterRow("Ham (APRS)", ham) { ham = it; s.showHam = it }
+        FilterRow("Weather (CWOP)", weather) { weather = it; s.showWeather = it }
+        FilterRow("Gliders (OGN)", glider) { glider = it; s.showGlider = it }
+        FilterRow("Ships / boats", ship) { ship = it; s.showShip = it }
+        FilterRow("LoRa", lora) { lora = it; s.showLora = it }
+        FilterRow("Other", other) { other = it; s.showOther = it }
+    }
+}
+
+@Composable
+private fun FilterRow(label: String, value: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = TextBase, fontSize = 14.sp,
+            modifier = Modifier.weight(1f))
+        Switch(checked = value, onCheckedChange = onChange)
+    }
+}
+
+// ============================================================================
+// Notifications + quiet hours
+// ============================================================================
+@Composable
+private fun NotificationsCard(vm: AprsViewModel) {
+    val s = vm.settings
+    var msg by remember { mutableStateOf(s.notifyMessages) }
+    var wx by remember { mutableStateOf(s.notifyWeather) }
+    var quiet by remember { mutableStateOf(s.quietHoursEnabled) }
+    var qStart by remember { mutableStateOf(s.quietStart.toString()) }
+    var qEnd by remember { mutableStateOf(s.quietEnd.toString()) }
+
+    Card("Notifications") {
+        FilterRow("Incoming messages", msg) { msg = it; s.notifyMessages = it }
+        FilterRow("Severe weather warnings", wx) { wx = it; s.notifyWeather = it }
+        Spacer(Modifier.size(6.dp))
+        FilterRow("Quiet hours", quiet) { quiet = it; s.quietHoursEnabled = it }
+        if (quiet) {
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                OutlinedTextField(
+                    value = qStart,
+                    onValueChange = {
+                        qStart = it.filter(Char::isDigit).take(2)
+                        qStart.toIntOrNull()?.let { v -> s.quietStart = v }
+                    },
+                    label = { Text("Start (0-23)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.size(10.dp))
+                OutlinedTextField(
+                    value = qEnd,
+                    onValueChange = {
+                        qEnd = it.filter(Char::isDigit).take(2)
+                        qEnd.toIntOrNull()?.let { v -> s.quietEnd = v }
+                    },
+                    label = { Text("End (0-23)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Text(
+                "Inside quiet hours, notifications are silent (still posted, " +
+                    "no sound/vibrate).",
+                color = TextDim, fontSize = 11.sp,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
+}
+
+// ============================================================================
+// shared bits
+// ============================================================================
 @Composable
 private fun Card(title: String, content: @Composable () -> Unit) {
     Column(
@@ -141,37 +394,11 @@ private fun Card(title: String, content: @Composable () -> Unit) {
             .background(BgPanel)
             .padding(14.dp)
     ) {
-        Text(
-            title.uppercase(),
-            color = Accent, fontWeight = FontWeight.Bold, fontSize = 12.sp
-        )
+        Text(title.uppercase(), color = Accent, fontWeight = FontWeight.Bold,
+            fontSize = 12.sp)
         Spacer(Modifier.size(8.dp))
         content()
     }
-}
-
-@Composable
-private fun Field(
-    label: String,
-    value: String,
-    password: Boolean = false,
-    numeric: Boolean = false,
-    onChange: (String) -> Unit
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
-        visualTransformation = if (password) PasswordVisualTransformation()
-                               else androidx.compose.ui.text.input.VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(
-            keyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    )
 }
 
 @Composable

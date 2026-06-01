@@ -3,6 +3,8 @@ package uk.aprsnet.client.net
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -100,6 +102,65 @@ object AprsApi {
         }.getOrDefault(emptyList())
     }
 
+    /** Result of a website member-account login. */
+    data class MemberLogin(
+        val ok: Boolean,
+        val token: String,
+        val callsign: String,
+        val name: String,
+        val passcode: String,
+        val error: String? = null
+    )
+
+    /**
+     * Sign in to the user's website account at www.aprsnet.uk.
+     * Returns the APRS-IS passcode (so the user doesn't have to enter it
+     * manually) and a session token. The user must register an account on
+     * the website first - the app does not register new accounts itself.
+     */
+    suspend fun memberLogin(callsign: String, password: String): MemberLogin =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val body = JSONObject().apply {
+                    put("callsign", callsign.trim().uppercase())
+                    put("password", password)
+                }.toString()
+                val req = Request.Builder()
+                    .url("$BASE/api/member/login")
+                    .post(body.toRequestBody("application/json".toMediaTypeOrNull()))
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    val raw = resp.body?.string() ?: ""
+                    val json = runCatching { JSONObject(raw) }.getOrNull()
+                    if (!resp.isSuccessful) {
+                        return@use MemberLogin(
+                            ok = false, token = "", callsign = "", name = "",
+                            passcode = "",
+                            error = json?.optString("error", "Login failed")
+                                ?: "Login failed (HTTP ${resp.code})"
+                        )
+                    }
+                    if (json == null) {
+                        return@use MemberLogin(
+                            ok = false, token = "", callsign = "", name = "",
+                            passcode = "", error = "Bad response from server"
+                        )
+                    }
+                    MemberLogin(
+                        ok = json.optBoolean("ok", true),
+                        token = json.optString("token"),
+                        callsign = json.optString("callsign"),
+                        name = json.optString("name"),
+                        passcode = json.optString("passcode")
+                    )
+                }
+            }.getOrElse {
+                MemberLogin(
+                    ok = false, token = "", callsign = "", name = "",
+                    passcode = "", error = it.message ?: "Network error"
+                )
+            }
+        }
     /** Admin config (basic-auth). Returns the raw config JSON or null. */
     suspend fun adminConfig(user: String, pass: String): JSONObject? =
         withContext(Dispatchers.IO) {
