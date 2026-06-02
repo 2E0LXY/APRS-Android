@@ -43,8 +43,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uk.aprsnet.client.AprsViewModel
 import uk.aprsnet.client.ui.theme.Accent
-import uk.aprsnet.client.ui.theme.AccentBlue
-import uk.aprsnet.client.ui.theme.AccentRose
+import uk.aprsnet.client.ui.theme.BgDeep
+import uk.aprsnet.client.ui.theme.Accent
+import uk.aprsnet.client.ui.theme.BgDeepBlue
+import uk.aprsnet.client.ui.theme.Accent
+import uk.aprsnet.client.ui.theme.BgDeepRose
 import uk.aprsnet.client.ui.theme.TextBase
 import uk.aprsnet.client.ui.theme.TextDim
 import uk.aprsnet.client.ui.theme.TextMute
@@ -115,7 +118,11 @@ fun ConversationListScreen(
                             }
                         }
                     ) {
-                        ConversationRow(
+                        // Opaque page-background under the row so the rose-red delete
+                        // background does not bleed through the row text and timestamp
+                        // while the swipe is in progress.
+                        Box(modifier = Modifier.background(BgDeep)) {
+                          ConversationRow(
                             callsign = c.remoteCall,
                             preview = c.lastText.ifEmpty { "(no text)" },
                             timestamp = c.lastTimestamp,

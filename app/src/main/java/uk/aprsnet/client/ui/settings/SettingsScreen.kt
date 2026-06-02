@@ -17,6 +17,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -187,6 +189,7 @@ private fun AprsCredentialsCard(vm: AprsViewModel) {
     val s = vm.settings
     var call by remember { mutableStateOf(s.callsign) }
     var pass by remember { mutableStateOf(s.passcode) }
+    var ssid by remember { mutableStateOf(s.ssid) }
     var saved by remember { mutableStateOf(false) }
 
     Card("APRS Credentials") {
@@ -209,10 +212,16 @@ private fun AprsCredentialsCard(vm: AprsViewModel) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         )
+        SsidPicker(
+            current = ssid,
+            onChange = { ssid = it },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
         Button(
             onClick = {
                 s.callsign = call
                 s.passcode = pass
+                s.ssid = ssid
                 vm.applySettings()
                 saved = true
             },
@@ -251,6 +260,11 @@ private fun PositionCard(vm: AprsViewModel) {
             ModeChip("Off", mode == "off") { mode = "off" }
         }
         Spacer(Modifier.size(10.dp))
+        Text(
+            "Beacon comment (shown on aprs.fi against your station)",
+            color = TextDim, fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
         OutlinedTextField(
             value = comment, onValueChange = { comment = it },
             label = { Text("Beacon comment") }, singleLine = true,
@@ -404,3 +418,54 @@ private fun ModeChip(label: String, selected: Boolean, onClick: () -> Unit) {
             .padding(horizontal = 14.dp, vertical = 8.dp)
     )
 }
+
+// ============================================================================
+// SSID picker - 0..15 with the conventional role label per APRS spec
+// ============================================================================
+@Composable
+private fun SsidPicker(
+    current: Int,
+    onChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var open by remember { mutableStateOf(false) }
+    Column(modifier = modifier) {
+        Text("SSID (callsign suffix)", color = TextDim, fontSize = 12.sp)
+        OutlinedButton(
+            onClick = { open = true },
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+        ) {
+            Text(
+                "-$current  ${SSID_LABELS[current]}",
+                color = TextBase
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            for (i in 0..15) {
+                DropdownMenuItem(
+                    text = { Text("-$i  ${SSID_LABELS[i]}") },
+                    onClick = { onChange(i); open = false }
+                )
+            }
+        }
+    }
+}
+
+private val SSID_LABELS = arrayOf(
+    "Base / HF",          //  0
+    "Generic 1",          //  1
+    "Generic 2",          //  2
+    "Generic 3",          //  3
+    "HF gateway",         //  4
+    "IGate / web",        //  5
+    "Satellite / IOTA",   //  6
+    "HT (handheld)",      //  7
+    "Boat / sailboat",    //  8
+    "Mobile / car",       //  9
+    "Internet / Echolink",// 10
+    "Balloon / aircraft", // 11
+    "DTMF / POS / RFID",  // 12
+    "Weather station",    // 13
+    "Truck / RV",         // 14
+    "Generic 15"          // 15
+)

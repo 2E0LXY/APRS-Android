@@ -97,7 +97,12 @@ class MessageRepository(
         }
 
         // --- a normal message; only handle those addressed to us ---
-        if (me.isEmpty() || parsed.to.uppercase() != me) return null
+        if (me.isEmpty()) return null
+        val to = parsed.to.uppercase()
+        val meBase = me.substringBefore("-")
+        // Accept messages addressed to either our full callsign-with-SSID or
+        // the bare base callsign - APRS clients use both conventions.
+        if (to != me && to != meBase) return null
 
         val entity = MessageEntity(
             remoteCall = parsed.from,

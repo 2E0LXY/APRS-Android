@@ -122,7 +122,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     fun start(callsign: String, passcode: String) {
         val call = callsign.ifEmpty { settings.callsign }
         val pass = passcode.ifEmpty { settings.passcode }
-        messages.myCallsign = call.trim().uppercase()
+        messages.myCallsign = settings.fullCallsign     // includes SSID suffix if set
         if (call.isNotEmpty()) ws.setCredentials(call, pass)
         ws.connect()
         startBeaconingIfPermitted()
@@ -178,7 +178,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     fun applySettings() {
         val call = settings.callsign
         val pass = settings.passcode
-        messages.myCallsign = call
+        messages.myCallsign = settings.fullCallsign
         // First-save default: turn beaconing on so the user appears on aprsnet.uk
         if (call.isNotEmpty() && pass.isNotEmpty() && settings.positionMode == "off") {
             settings.positionMode = "smart"

@@ -12,8 +12,8 @@ android {
         applicationId = "uk.aprsnet.client"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "2.3.0"
+        versionCode = 10
+        versionName = "2.3.1"
     }
 
     buildTypes {
@@ -62,6 +62,7 @@ dependencies {
 
     // Map - osmdroid (same OpenStreetMap tiles as the website)
     implementation("org.osmdroid:osmdroid-android:6.1.18")
+    implementation("com.github.MKergall:osmbonuspack:6.9.0")
 
     // Location
     implementation("com.google.android.gms:play-services-location:21.3.0")

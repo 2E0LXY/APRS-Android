@@ -78,7 +78,7 @@ class BeaconManager(
             append(settings.beaconComment)
         }
         val packet = PacketBuilder.position(
-            from = settings.callsign,
+            from = settings.fullCallsign,    // base or base-N depending on SSID setting
             lat = fix.lat,
             lon = fix.lon,
             symbolTable = table,

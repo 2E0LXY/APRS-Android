@@ -23,6 +23,22 @@ class SettingsStore(context: Context) {
     val hasCredentials: Boolean
         get() = callsign.isNotEmpty() && passcode.isNotEmpty()
 
+    /**
+     * APRS SSID 0-15. 0 = no SSID (bare callsign).
+     * Convention:
+     *   0 base/home   5 IGate    9 mobile/car   13 weather
+     *   1-3 generic  6 satellite 10 internet    14 truck/RV
+     *   4 HF gateway 7 HT        11 balloon     15 generic
+     *   8 boat       12 DTMF
+     */
+    var ssid: Int
+        get() = prefs.getInt("ssid", 0).coerceIn(0, 15)
+        set(v) = prefs.edit().putInt("ssid", v.coerceIn(0, 15)).apply()
+
+    /** Full callsign for transmission: '2E0LXY' (ssid=0) or '2E0LXY-9' (ssid>0). */
+    val fullCallsign: String
+        get() = if (ssid == 0) callsign else "-$ssid"
+
     // -- Website member account --------------------------------------------
     // Set by the member-login flow; lets the app pull the user's passcode
     // automatically from the server, and (later) sync watchlists. The user

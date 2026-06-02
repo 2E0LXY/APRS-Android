@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.sample
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.bonuspack.clustering.RadiusMarkerClusterer
 import org.osmdroid.views.overlay.Marker
 import uk.aprsnet.client.AprsViewModel
 import uk.aprsnet.client.model.Station
@@ -58,6 +59,9 @@ fun MapScreen(
 ) {
     val mapState = remember { mutableStateOf<MapView?>(null) }
     val markers = remember { HashMap<String, Marker>() }
+    // Clusterer overlay holds the markers; OSM tiles render under it. At lower
+    // zoom dense markers collapse into a count bubble; pinch-zoom auto-splits.
+    val clusterer = remember { mutableStateOf<RadiusMarkerClusterer?>(null) }
     val myMarker = remember { mutableStateOf<Marker?>(null) }
     var selected by remember { mutableStateOf<Station?>(null) }
     val myPos by vm.myPosition.collectAsState()
@@ -75,6 +79,11 @@ fun MapScreen(
                         isTilesScaledToDpi = true
                         controller.setZoom(8.0)
                         controller.setCenter(GeoPoint(53.7, -1.5))
+                        // add clusterer overlay - markers will be added to it
+                        val c = RadiusMarkerClusterer(ctx)
+                        c.setRadius(100)
+                        overlays.add(c)
+                        clusterer.value = c
                         mapState.value = this
                     }
                 }.getOrElse { MapView(ctx) }
@@ -128,9 +137,11 @@ fun MapScreen(
                             uk.aprsnet.client.model.StationType.OTHER -> s.showOther
                         }
                     }
-                    syncMarkers(map, markers, filtered, hiddenCalls = current.keys - filtered.map { it.callsign }.toSet()) { call ->
+                    val c = clusterer.value
+                    syncMarkers(map, markers, c, filtered, hiddenCalls = current.keys - filtered.map { it.callsign }.toSet()) { call ->
                         selected = current[call]
                     }
+                    c?.invalidate(map)
                     map.invalidate()
                 }
             }
@@ -191,13 +202,14 @@ fun MapScreen(
 private fun syncMarkers(
     map: MapView,
     markers: HashMap<String, Marker>,
+    clusterer: RadiusMarkerClusterer?,
     stations: Collection<Station>,
     hiddenCalls: Set<String> = emptySet(),
     onClick: (String) -> Unit
 ) {
     // Remove markers for stations now hidden by a filter
     hiddenCalls.forEach { call ->
-        markers.remove(call)?.let { map.overlays.remove(it) }
+        markers.remove(call)?.let { m -> clusterer?.items?.remove(m) }
     }
     stations.forEach { st ->
         val existing = markers[st.callsign]
@@ -205,12 +217,12 @@ private fun syncMarkers(
             val m = Marker(map).apply {
                 position = GeoPoint(st.lat, st.lon)
                 title = st.callsign
-                icon = dotIcon(map, st.type)
+                icon = dotIcon(map, st.type, st.symbolTable, st.symbolCode)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 setOnMarkerClickListener { _, _ -> onClick(st.callsign); true }
             }
             markers[st.callsign] = m
-            map.overlays.add(m)
+            clusterer?.add(m)
         } else {
             val gp = GeoPoint(st.lat, st.lon)
             if (existing.position != gp) existing.position = gp
@@ -234,11 +246,26 @@ private val typeColours = mapOf(
 )
 private val iconCache = HashMap<Int, BitmapDrawable>()
 
-private fun dotIcon(map: MapView, type: StationType): BitmapDrawable {
+private val glyphIconCache = HashMap<String, BitmapDrawable>()
+
+/**
+ * Marker icon: 20dp coloured circle with the curated APRS glyph centred on it.
+ * Cached per (colour, glyph) pair. Falls back to a plain dot when no glyph
+ * is known for the symbol pair.
+ */
+private fun dotIcon(
+    map: MapView,
+    type: StationType,
+    symbolTable: Char,
+    symbolCode: Char
+): BitmapDrawable {
     val colour = typeColours[type] ?: 0xFF94A3B8.toInt()
-    iconCache[colour]?.let { return it }
+    val glyph = aprsGlyph(symbolTable, symbolCode)
+    val key = colour.toString() + "_" + (glyph ?: "")
+    glyphIconCache[key]?.let { return it }
+
     val d = map.context.resources.displayMetrics.density
-    val sizePx = (14 * d).toInt()           // 14dp dot
+    val sizePx = (20 * d).toInt()                // 20dp - was 14dp
     val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bmp)
     val r = sizePx / 2f
@@ -250,10 +277,49 @@ private fun dotIcon(map: MapView, type: StationType): BitmapDrawable {
     }
     canvas.drawCircle(r, r, r, outline)
     canvas.drawCircle(r, r, r - 2f * d, fill)
+
+    if (glyph != null) {
+        val txt = Paint().apply {
+            isAntiAlias = true; color = AColor.WHITE
+            textAlign = Paint.Align.CENTER
+            isFakeBoldText = true
+            textSize = 9f * d
+        }
+        val fm = txt.fontMetrics
+        canvas.drawText(glyph, r, r - (fm.ascent + fm.descent) / 2f, txt)
+    }
+
     val drawable = BitmapDrawable(map.context.resources, bmp)
-    iconCache[colour] = drawable
+    glyphIconCache[key] = drawable
     return drawable
 }
+
+/**
+ * Curated APRS-symbol-to-glyph table. Maps the most common (table, code)
+ * pairs from the APRS symbol set to a short readable string drawn on the
+ * marker. Unknown pairs return null so the marker stays a plain dot.
+ * Reference: APRS Spec 1.0.1 Chapter 20 (Symbol Tables)
+ */
+private fun aprsGlyph(table: Char, code: Char): String? {
+    if (table != '/' && table != '\\') return null
+    return APRS_GLYPHS[code]
+}
+
+private val APRS_GLYPHS: Map<Char, String> = mapOf(
+    '>' to "CAR",   '<' to "M/C",   '-' to "QTH",  ':' to "FD",
+    ';' to "CMP",   '=' to "RR",    '?' to "?",    '@' to "HUR",
+    '#' to "DIG",   '&' to "GW",    '_' to "WX",   '`' to "DSH",
+    '^' to "AIR",   '\'' to "AIR",  '!' to "POL",
+    'A' to "AID",   'C' to "CAN",   'E' to "EYE",  'F' to "FRM",
+    'H' to "HTL",   'K' to "SCH",   'L' to "PC",   'N' to "NTS",
+    'O' to "BAL",   'P' to "POL",   'R' to "RV",   'S' to "SHU",
+    'U' to "BUS",   'W' to "NWS",   'X' to "HEL",  'Y' to "YAC",
+    'a' to "AMB",   'b' to "BIKE",  'd' to "FRE",  'e' to "HRS",
+    'f' to "TRK",   'g' to "GLD",   'h' to "HSP",  'j' to "JEEP",
+    'k' to "TRK",   'l' to "LAP",   'n' to "NODE", 'o' to "EOC",
+    'r' to "RPT",   's' to "SHIP",  't' to "STOP", 'u' to "18W",
+    'v' to "VAN",   'w' to "WTR",   'y' to "YAGI", '[' to "JOG"
+)
 
 private fun myDotIcon(map: MapView): BitmapDrawable {
     val key = 0x00BFFF
