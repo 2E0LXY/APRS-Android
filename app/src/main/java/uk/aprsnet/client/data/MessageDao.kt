@@ -58,6 +58,9 @@ interface MessageDao {
     )
     suspend fun findOutgoing(call: String, msgId: String): MessageEntity?
 
+    @Query("DELETE FROM messages WHERE remoteCall = :call")
+    suspend fun deleteConversation(call: String)
+
     @Query("UPDATE messages SET read = 1 WHERE remoteCall = :call AND outgoing = 0")
     suspend fun markRead(call: String)
 

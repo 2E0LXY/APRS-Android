@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import uk.aprsnet.client.AprsViewModel
+import uk.aprsnet.client.ui.common.GlassCard
 import uk.aprsnet.client.ui.theme.Accent
 import uk.aprsnet.client.ui.theme.BgPanel
 import uk.aprsnet.client.ui.theme.Err
@@ -386,19 +387,7 @@ private fun NotificationsCard(vm: AprsViewModel) {
 // ============================================================================
 @Composable
 private fun Card(title: String, content: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(BgPanel)
-            .padding(14.dp)
-    ) {
-        Text(title.uppercase(), color = Accent, fontWeight = FontWeight.Bold,
-            fontSize = 12.sp)
-        Spacer(Modifier.size(8.dp))
-        content()
-    }
+    GlassCard(title = title, content = content)
 }
 
 @Composable

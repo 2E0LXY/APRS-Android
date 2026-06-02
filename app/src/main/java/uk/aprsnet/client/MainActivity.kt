@@ -57,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -76,7 +77,10 @@ import uk.aprsnet.client.ui.weather.WeatherScreen
 import uk.aprsnet.client.ui.iss.IssScreen
 import uk.aprsnet.client.ui.admin.AdminScreen
 import uk.aprsnet.client.ui.theme.AprsNetTheme
+import uk.aprsnet.client.ui.theme.Accent
 import uk.aprsnet.client.ui.theme.BgHeader
+import uk.aprsnet.client.ui.theme.TextDim
+import uk.aprsnet.client.ui.theme.TextHi
 import uk.aprsnet.client.ui.theme.Err
 import uk.aprsnet.client.ui.theme.Ok
 
@@ -308,15 +312,15 @@ private fun TopBar(
                 Icon(
                     Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color(0xFF60A5FA)
+                    tint = Accent
                 )
             }
         } else {
             Spacer(Modifier.size(8.dp))
         }
-        Text(title, color = Color(0xFF60A5FA))
+        Text(title, color = TextHi, fontWeight = FontWeight.Bold, fontSize = 17.sp)
         Spacer(Modifier.weight(1f))
-        Text("$stationCount stn", color = Color(0xFF94A3B8))
+        Text("$stationCount stn", color = TextDim, fontSize = 12.sp)
         Spacer(Modifier.size(8.dp))
         val dot = when (conn) {
             AprsWebSocket.ConnState.AUTHED,
@@ -334,7 +338,7 @@ private fun TopBar(
                 Icon(
                     Icons.Default.MoreVert,
                     contentDescription = "More",
-                    tint = Color(0xFF60A5FA)
+                    tint = Accent
                 )
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {

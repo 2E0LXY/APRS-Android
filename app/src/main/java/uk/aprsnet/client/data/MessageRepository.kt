@@ -25,6 +25,8 @@ class MessageRepository(
 
     suspend fun markRead(call: String) = dao.markRead(call)
 
+    suspend fun deleteConversation(call: String) = dao.deleteConversation(call)
+
     /** Next cycling 2-digit APRS message id. */
     private fun nextMsgId(): String {
         val id = msgIdCounter % 100

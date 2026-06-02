@@ -1,6 +1,11 @@
 package uk.aprsnet.client.ui.map
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.indication
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -44,6 +49,7 @@ import uk.aprsnet.client.ui.common.StationDetailDialog
  * Tiles are rendered with setTilesScaledToDpi(true) so place-name labels
  * are legible on high-DPI displays.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MapScreen(
     vm: AprsViewModel,
@@ -75,18 +81,28 @@ fun MapScreen(
             }
         )
 
+        // My-location FAB:
+        //   tap     - centre map on current GPS fix
+        //   long-press - force an immediate position beacon (manual override
+        //                of smart-beacon's stationary-rate timer)
         FloatingActionButton(
-            onClick = {
-                val map = mapState.value ?: return@FloatingActionButton
-                val fix = vm.myPosition.value ?: return@FloatingActionButton
-                runCatching {
-                    map.controller.animateTo(GeoPoint(fix.lat, fix.lon))
-                    map.controller.setZoom(14.0)
-                }
-            },
+            onClick = {},     // handled by the inner combinedClickable below
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        val map = mapState.value ?: return@combinedClickable
+                        val fix = vm.myPosition.value ?: return@combinedClickable
+                        runCatching {
+                            map.controller.animateTo(GeoPoint(fix.lat, fix.lon))
+                            map.controller.setZoom(14.0)
+                        }
+                    },
+                    onLongClick = { vm.beaconNow() }
+                )
         ) {
             Icon(Icons.Default.MyLocation, contentDescription = "My location")
         }

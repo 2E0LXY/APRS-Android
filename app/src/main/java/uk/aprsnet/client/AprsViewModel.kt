@@ -162,16 +162,41 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         settings.clearMember()
     }
 
-    /** Re-apply settings after the user saves them (reconnect with callsign). */
+    /**
+     * Re-apply settings after the user saves them. Reconnects the WS with
+     * the current callsign/passcode and re-starts beaconing if permitted.
+     *
+     * When the user has saved credentials for the FIRST time we flip the
+     * default position mode from "off" to "smart" so they don't have to
+     * dig into a second card to start showing on the map.
+     *
+     * After (re)starting beaconing, if smart mode is on AND a GPS fix is
+     * already known, force an immediate beacon - otherwise a stationary user
+     * could wait up to 20 minutes for the smart-beacon timer to fire the
+     * first packet (slowRateSec default).
+     */
     fun applySettings() {
         val call = settings.callsign
         val pass = settings.passcode
         messages.myCallsign = call
+        // First-save default: turn beaconing on so the user appears on aprsnet.uk
+        if (call.isNotEmpty() && pass.isNotEmpty() && settings.positionMode == "off") {
+            settings.positionMode = "smart"
+        }
         if (call.isNotEmpty()) ws.setCredentials(call, pass)
         startBeaconingIfPermitted()
+        // Force an immediate beacon if we can - covers the case where smart mode
+        // was just enabled and the user isn't moving so no new fix is incoming.
+        if (settings.positionMode == "smart" && beacon.myPosition.value != null) {
+            beacon.beaconNow()
+        }
     }
 
     fun thread(call: String) = messages.thread(call)
+
+    fun deleteConversation(call: String) {
+        viewModelScope.launch { runCatching { messages.deleteConversation(call) } }
+    }
 
     fun send(to: String, text: String) {
         viewModelScope.launch { runCatching { messages.sendMessage(to, text) } }

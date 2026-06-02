@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,8 @@ import uk.aprsnet.client.AprsViewModel
 import uk.aprsnet.client.data.MessageEntity
 import uk.aprsnet.client.model.MessageState
 import uk.aprsnet.client.ui.theme.Accent
+import uk.aprsnet.client.ui.theme.AccentBlue
+import uk.aprsnet.client.ui.theme.AccentLime
 import uk.aprsnet.client.ui.theme.BubbleAcked
 import uk.aprsnet.client.ui.theme.BubbleMine
 import uk.aprsnet.client.ui.theme.BubbleThem
@@ -133,6 +136,21 @@ private fun MessageBubble(m: MessageEntity, onRetry: () -> Unit) {
     }
     val align = if (m.outgoing) Alignment.End else Alignment.Start
 
+    val shape = if (m.outgoing)
+        RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)
+    else
+        RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
+
+    // outgoing gets a vertical gradient; ACKed uses lime->green; failed is red
+    val gradient = when {
+        !m.outgoing -> null
+        state == MessageState.ACKED -> Brush.verticalGradient(
+            listOf(AccentLime, BubbleAcked))
+        state == MessageState.FAILED -> Brush.verticalGradient(
+            listOf(Err, Err))
+        else -> Brush.verticalGradient(listOf(AccentBlue, BubbleMine))
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -142,10 +160,13 @@ private fun MessageBubble(m: MessageEntity, onRetry: () -> Unit) {
         Box(
             modifier = Modifier
                 .widthIn(max = 280.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(bubbleColor)
+                .clip(shape)
+                .then(
+                    if (gradient != null) Modifier.background(gradient)
+                    else Modifier.background(bubbleColor)
+                )
                 .clickable(enabled = m.outgoing && state == MessageState.FAILED) { onRetry() }
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(horizontal = 14.dp, vertical = 9.dp)
         ) {
             Column {
                 Text(m.text, color = TextBase, fontSize = 14.sp)
