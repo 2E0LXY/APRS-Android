@@ -141,7 +141,7 @@ fun MapScreen(
                     syncMarkers(map, markers, c, filtered, hiddenCalls = current.keys - filtered.map { it.callsign }.toSet()) { call ->
                         selected = current[call]
                     }
-                    c?.invalidate(map)
+                    c?.invalidate()
                     map.invalidate()
                 }
             }
