@@ -133,6 +133,7 @@ fun ConversationListScreen(
                 }
             }
         }
+        }
 
         FloatingActionButton(
             onClick = { showNew = true },
