@@ -124,6 +124,24 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("quiet_end", 7)
         set(v) = prefs.edit().putInt("quiet_end", v.coerceIn(0, 23)).apply()
 
+    // -- Appearance --------------------------------------------------------
+    /**
+     * Theme id: 0 = default navy, 1 = sunset, 2 = forest, 3 = aurora, 4 = mono.
+     * Affects the page background gradient and accent tints.
+     */
+    var themeId: Int
+        get() = prefs.getInt("theme_id", 0).coerceIn(0, 4)
+        set(v) = prefs.edit().putInt("theme_id", v.coerceIn(0, 4)).apply()
+
+    /**
+     * Bubble colour id for outgoing messages: 0 = cyan->navy (default),
+     * 1 = amber, 2 = lime, 3 = purple, 4 = rose, 5 = blue.
+     * ACKed bubbles always show lime->green so success stays unambiguous.
+     */
+    var bubbleColourId: Int
+        get() = prefs.getInt("bubble_colour_id", 0).coerceIn(0, 5)
+        set(v) = prefs.edit().putInt("bubble_colour_id", v.coerceIn(0, 5)).apply()
+
     /** Is the current local hour inside the quiet-hours window? */
     fun inQuietHours(now: java.util.Calendar = java.util.Calendar.getInstance()): Boolean {
         if (!quietHoursEnabled) return false

@@ -86,7 +86,7 @@ fun ThreadScreen(
                 .fillMaxWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)
         ) {
-            items(messages) { m -> MessageBubble(m) { vm.retry(m.id) } }
+            items(messages) { m -> MessageBubble(m, vm.settings.bubbleColourId) { vm.retry(m.id) } }
         }
 
         // compose bar
@@ -126,7 +126,7 @@ fun ThreadScreen(
 }
 
 @Composable
-private fun MessageBubble(m: MessageEntity, onRetry: () -> Unit) {
+private fun MessageBubble(m: MessageEntity, bubbleColourId: Int, onRetry: () -> Unit) {
     val state = m.stateEnum()
     val bubbleColor = when {
         !m.outgoing -> BubbleThem
@@ -148,7 +148,12 @@ private fun MessageBubble(m: MessageEntity, onRetry: () -> Unit) {
             listOf(AccentLime, BubbleAcked))
         state == MessageState.FAILED -> Brush.verticalGradient(
             listOf(Err, Err))
-        else -> Brush.verticalGradient(listOf(AccentBlue, BubbleMine))
+        else -> {
+            val palette = uk.aprsnet.client.ui.theme.BUBBLE_PALETTES
+                .getOrNull(bubbleColourId)
+                ?: uk.aprsnet.client.ui.theme.BUBBLE_PALETTES[0]
+            Brush.verticalGradient(listOf(palette.top, palette.bottom))
+        }
     }
 
     Column(

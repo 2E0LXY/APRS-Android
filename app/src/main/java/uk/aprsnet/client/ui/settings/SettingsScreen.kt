@@ -48,6 +48,10 @@ import uk.aprsnet.client.ui.theme.Err
 import uk.aprsnet.client.ui.theme.Ok
 import uk.aprsnet.client.ui.theme.TextBase
 import uk.aprsnet.client.ui.theme.TextDim
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.height
+import uk.aprsnet.client.ui.theme.BorderCol
 
 /**
  * Comprehensive user-settings hub. Every preference the app exposes lives
@@ -63,6 +67,7 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState())
             .padding(12.dp)
     ) {
+        AppearanceCard(vm)
         MemberAccountCard(vm)
         AprsCredentialsCard(vm)
         PositionCard(vm)
@@ -469,3 +474,135 @@ private val SSID_LABELS = arrayOf(
     "Truck / RV",         // 14
     "Generic 15"          // 15
 )
+
+// ============================================================================
+// Appearance - theme picker + outgoing bubble colour picker
+// ============================================================================
+@Composable
+private fun AppearanceCard(vm: AprsViewModel) {
+    val s = vm.settings
+    var themeId by remember { mutableStateOf(s.themeId) }
+    var bubbleId by remember { mutableStateOf(s.bubbleColourId) }
+
+    GlassCard(title = "Appearance") {
+        Text(
+            "Pick a background theme and a colour for your outgoing message " +
+                "bubbles. ACKed messages stay green for clarity.",
+            color = TextDim, fontSize = 12.sp
+        )
+        Spacer(Modifier.size(10.dp))
+
+        // -- theme row -------------------------------------------------------
+        Text("Background", color = TextDim, fontSize = 12.sp)
+        Spacer(Modifier.size(6.dp))
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            uk.aprsnet.client.ui.theme.APP_THEMES.forEach { t ->
+                ThemeSwatch(
+                    label = t.label,
+                    topColour = t.gradientTop,
+                    bottomColour = t.gradientBottom,
+                    selected = themeId == t.id,
+                    onClick = {
+                        themeId = t.id
+                        s.themeId = t.id
+                    },
+                    modifier = Modifier.weight(1f).padding(horizontal = 2.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.size(12.dp))
+
+        // -- bubble-colour row ----------------------------------------------
+        Text("Outgoing message bubble", color = TextDim, fontSize = 12.sp)
+        Spacer(Modifier.size(6.dp))
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            uk.aprsnet.client.ui.theme.BUBBLE_PALETTES.forEach { p ->
+                BubbleSwatch(
+                    topColour = p.top,
+                    bottomColour = p.bottom,
+                    selected = bubbleId == p.id,
+                    onClick = {
+                        bubbleId = p.id
+                        s.bubbleColourId = p.id
+                    },
+                    modifier = Modifier.weight(1f).padding(horizontal = 2.dp)
+                )
+            }
+        }
+        Text(
+            "Changes apply instantly. ACKed bubbles stay lime/green.",
+            color = TextDim, fontSize = 11.sp,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun ThemeSwatch(
+    label: String,
+    topColour: androidx.compose.ui.graphics.Color,
+    bottomColour: androidx.compose.ui.graphics.Color,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+    ) {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        listOf(topColour, bottomColour)
+                    )
+                )
+                .border(
+                    androidx.compose.foundation.BorderStroke(
+                        if (selected) 2.dp else 1.dp,
+                        if (selected) Accent else BorderCol
+                    ),
+                    RoundedCornerShape(8.dp)
+                )
+                .clickable(onClick = onClick)
+        )
+        Text(
+            label,
+            color = if (selected) Accent else TextDim,
+            fontSize = 10.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun BubbleSwatch(
+    topColour: androidx.compose.ui.graphics.Color,
+    bottomColour: androidx.compose.ui.graphics.Color,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier
+            .height(36.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(topColour, bottomColour)
+                )
+            )
+            .border(
+                androidx.compose.foundation.BorderStroke(
+                    if (selected) 2.dp else 1.dp,
+                    if (selected) Accent else BorderCol
+                ),
+                RoundedCornerShape(10.dp)
+            )
+            .clickable(onClick = onClick)
+    )
+}

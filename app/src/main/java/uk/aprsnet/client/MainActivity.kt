@@ -212,7 +212,17 @@ private fun AppRoot(initialThread: String?) {
         Screen.MAP, Screen.STATIONS, Screen.MESSAGES, Screen.CONTACTS, Screen.STATUS
     )
 
-    Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+    val theme = uk.aprsnet.client.ui.theme.APP_THEMES.getOrNull(vm.settings.themeId)
+        ?: uk.aprsnet.client.ui.theme.APP_THEMES[0]
+    val bgBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
+        listOf(theme.gradientTop, theme.gradientBottom)
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgBrush)
+            .safeDrawingPadding()
+    ) {
         TopBar(
             conn = conn,
             stationCount = stations.size,
