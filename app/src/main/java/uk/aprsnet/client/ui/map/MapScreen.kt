@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.padding
@@ -440,14 +441,12 @@ private class TappableClusterer(
         m.setOnMarkerClickListener { _, _ ->
             val items: List<Marker> = (0 until (cluster?.size ?: 0))
                 .mapNotNull { cluster?.getItem(it) }
-            if (items.size > 1) {
-                onClusterTap(items)
-                true
-            } else {
-                // single-marker cluster: fall through to normal marker click
-                items.firstOrNull()?.let { it.onMarkerClickDefault(it, mapView) }
-                true
-            }
+            // Always forward to the dialog. For size-1 clusters the dialog
+            // shows a single row that opens the station detail when tapped -
+            // slightly redundant but avoids calling protected APIs on Marker
+            // from outside its package.
+            if (items.isNotEmpty()) onClusterTap(items)
+            true
         }
         return m
     }
