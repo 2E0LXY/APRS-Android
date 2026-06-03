@@ -86,7 +86,7 @@ fun ThreadScreen(
                 .fillMaxWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)
         ) {
-            items(messages) { m -> MessageBubble(m, vm.settings.bubbleColourId) { vm.retry(m.id) } }
+            items(messages) { m -> MessageBubble(m, vm.settings.bubbleColourId, vm.settings.incomingBubbleColourId) { vm.retry(m.id) } }
         }
 
         // compose bar
@@ -126,14 +126,8 @@ fun ThreadScreen(
 }
 
 @Composable
-private fun MessageBubble(m: MessageEntity, bubbleColourId: Int, onRetry: () -> Unit) {
+private fun MessageBubble(m: MessageEntity, bubbleColourId: Int, incomingBubbleColourId: Int, onRetry: () -> Unit) {
     val state = m.stateEnum()
-    val bubbleColor = when {
-        !m.outgoing -> BubbleThem
-        state == MessageState.ACKED -> BubbleAcked      // GREEN on ACK
-        state == MessageState.FAILED -> Err
-        else -> BubbleMine
-    }
     val align = if (m.outgoing) Alignment.End else Alignment.Start
 
     val shape = if (m.outgoing)
@@ -141,16 +135,22 @@ private fun MessageBubble(m: MessageEntity, bubbleColourId: Int, onRetry: () -> 
     else
         RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
 
-    // outgoing gets a vertical gradient; ACKed uses lime->green; failed is red
+    // Both directions render as gradients. ACKed outgoing -> lime/green;
+    // failed outgoing -> red. Incoming uses the user-picked palette.
     val gradient = when {
-        !m.outgoing -> null
-        state == MessageState.ACKED -> Brush.verticalGradient(
+        m.outgoing && state == MessageState.ACKED -> Brush.verticalGradient(
             listOf(AccentLime, BubbleAcked))
-        state == MessageState.FAILED -> Brush.verticalGradient(
+        m.outgoing && state == MessageState.FAILED -> Brush.verticalGradient(
             listOf(Err, Err))
-        else -> {
+        m.outgoing -> {
             val palette = uk.aprsnet.client.ui.theme.BUBBLE_PALETTES
                 .getOrNull(bubbleColourId)
+                ?: uk.aprsnet.client.ui.theme.BUBBLE_PALETTES[0]
+            Brush.verticalGradient(listOf(palette.top, palette.bottom))
+        }
+        else -> {
+            val palette = uk.aprsnet.client.ui.theme.BUBBLE_PALETTES
+                .getOrNull(incomingBubbleColourId)
                 ?: uk.aprsnet.client.ui.theme.BUBBLE_PALETTES[0]
             Brush.verticalGradient(listOf(palette.top, palette.bottom))
         }
@@ -166,10 +166,7 @@ private fun MessageBubble(m: MessageEntity, bubbleColourId: Int, onRetry: () -> 
             modifier = Modifier
                 .widthIn(max = 280.dp)
                 .clip(shape)
-                .then(
-                    if (gradient != null) Modifier.background(gradient)
-                    else Modifier.background(bubbleColor)
-                )
+                .background(gradient)
                 .clickable(enabled = m.outgoing && state == MessageState.FAILED) { onRetry() }
                 .padding(horizontal = 14.dp, vertical = 9.dp)
         ) {

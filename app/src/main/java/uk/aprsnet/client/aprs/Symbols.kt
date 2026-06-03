@@ -18,6 +18,7 @@ object Symbols {
     private val OBJECT   = MarkerStyle(Color(0xFFE2E8F0), "O")
     private val SHIP     = MarkerStyle(Color(0xFF06B6D4), "S")
     private val LORA     = MarkerStyle(Color(0xFFA855F7), "L")
+    private val MMDVM    = MarkerStyle(Color(0xFFEC4899), "M")
     private val OTHER    = MarkerStyle(Color(0xFF94A3B8), "?")
 
     fun styleFor(type: StationType): MarkerStyle = when (type) {
@@ -27,6 +28,7 @@ object Symbols {
         StationType.OBJECT  -> OBJECT
         StationType.SHIP    -> SHIP
         StationType.LORA    -> LORA
+        StationType.MMDVM   -> MMDVM
         StationType.OTHER   -> OTHER
     }
 

@@ -17,7 +17,7 @@ data class Station(
     val type: StationType = StationType.HAM
 )
 
-enum class StationType { HAM, WEATHER, GLIDER, OBJECT, SHIP, LORA, OTHER }
+enum class StationType { HAM, WEATHER, GLIDER, OBJECT, SHIP, LORA, MMDVM, OTHER }
 
 /** An APRS text message, incoming or outgoing. */
 data class Message(

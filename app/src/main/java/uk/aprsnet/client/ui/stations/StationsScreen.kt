@@ -51,7 +51,7 @@ fun StationsScreen(
     var selected by remember { mutableStateOf<Station?>(null) }
 
     val s = vm.settings
-    val list = remember(stations, query, myPos, s.showHam, s.showWeather, s.showGlider, s.showShip, s.showLora, s.showOther) {
+    val list = remember(stations, query, myPos, s.showHam, s.showWeather, s.showGlider, s.showShip, s.showLora, s.showMmdvm, s.showOther) {
         stations.values
             .filter { query.isBlank() || it.callsign.contains(query.uppercase()) }
             .filter { st ->
@@ -61,6 +61,7 @@ fun StationsScreen(
                     uk.aprsnet.client.model.StationType.GLIDER -> s.showGlider
                     uk.aprsnet.client.model.StationType.SHIP -> s.showShip
                     uk.aprsnet.client.model.StationType.LORA -> s.showLora
+                    uk.aprsnet.client.model.StationType.MMDVM -> s.showMmdvm
                     uk.aprsnet.client.model.StationType.OBJECT,
                     uk.aprsnet.client.model.StationType.OTHER -> s.showOther
                 }

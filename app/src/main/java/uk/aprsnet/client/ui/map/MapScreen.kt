@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.FloatingActionButton
@@ -104,26 +105,28 @@ fun MapScreen(
 
         // My-location FAB:
         //   tap     - centre map on current GPS fix
-        //   long-press - force an immediate position beacon (manual override
-        //                of smart-beacon's stationary-rate timer)
+        //   long-press - force an immediate position beacon (manual override)
+        //
+        // FloatingActionButton consumes touches via its own onClick, so a
+        // .combinedClickable on the modifier is shadowed. Use the FAB's own
+        // onClick for tap, and Modifier.pointerInput for long-press.
         FloatingActionButton(
-            onClick = {},     // handled by the inner combinedClickable below
+            onClick = {
+                val map = mapState.value ?: return@FloatingActionButton
+                val fix = vm.myPosition.value ?: return@FloatingActionButton
+                runCatching {
+                    map.controller.animateTo(GeoPoint(fix.lat, fix.lon))
+                    map.controller.setZoom(14.0)
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
-                .combinedClickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {
-                        val map = mapState.value ?: return@combinedClickable
-                        val fix = vm.myPosition.value ?: return@combinedClickable
-                        runCatching {
-                            map.controller.animateTo(GeoPoint(fix.lat, fix.lon))
-                            map.controller.setZoom(14.0)
-                        }
-                    },
-                    onLongClick = { vm.beaconNow() }
-                )
+                .pointerInput(Unit) {
+                    androidx.compose.foundation.gestures.detectTapGestures(
+                        onLongPress = { vm.beaconNow() }
+                    )
+                }
         ) {
             Icon(Icons.Default.MyLocation, contentDescription = "My location")
         }
@@ -145,6 +148,7 @@ fun MapScreen(
                             uk.aprsnet.client.model.StationType.GLIDER -> s.showGlider
                             uk.aprsnet.client.model.StationType.SHIP -> s.showShip
                             uk.aprsnet.client.model.StationType.LORA -> s.showLora
+                            uk.aprsnet.client.model.StationType.MMDVM -> s.showMmdvm
                             uk.aprsnet.client.model.StationType.OBJECT,
                             uk.aprsnet.client.model.StationType.OTHER -> s.showOther
                         }
@@ -321,6 +325,7 @@ private val typeColours = mapOf(
     StationType.OBJECT  to 0xFFE5E7EB.toInt(),  // light grey
     StationType.SHIP    to 0xFF06B6D4.toInt(),  // cyan
     StationType.LORA    to 0xFFA855F7.toInt(),  // purple
+    StationType.MMDVM   to 0xFFEC4899.toInt(),  // rose / magenta
     StationType.OTHER   to 0xFF94A3B8.toInt()   // slate
 )
 private val iconCache = HashMap<Int, BitmapDrawable>()

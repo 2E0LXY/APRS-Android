@@ -320,6 +320,7 @@ private fun FiltersCard(vm: AprsViewModel) {
     var glider by remember { mutableStateOf(s.showGlider) }
     var ship by remember { mutableStateOf(s.showShip) }
     var lora by remember { mutableStateOf(s.showLora) }
+    var mmdvm by remember { mutableStateOf(s.showMmdvm) }
     var other by remember { mutableStateOf(s.showOther) }
 
     Card("Map Filters") {
@@ -332,7 +333,8 @@ private fun FiltersCard(vm: AprsViewModel) {
         FilterRow("Gliders (OGN)", glider) { glider = it; s.showGlider = it }
         FilterRow("Ships / boats", ship) { ship = it; s.showShip = it }
         FilterRow("LoRa", lora) { lora = it; s.showLora = it }
-        FilterRow("Other", other) { other = it; s.showOther = it }
+        FilterRow("MMDVM (DMR / D-STAR / YSF)", mmdvm) { mmdvm = it; s.showMmdvm = it }
+        FilterRow("Other (objects, repeaters, digis, unclassified)", other) { other = it; s.showOther = it }
     }
 }
 
@@ -483,6 +485,7 @@ private fun AppearanceCard(vm: AprsViewModel) {
     val s = vm.settings
     var themeId by remember { mutableStateOf(s.themeId) }
     var bubbleId by remember { mutableStateOf(s.bubbleColourId) }
+    var incomingBubbleId by remember { mutableStateOf(s.incomingBubbleColourId) }
 
     GlassCard(title = "Appearance") {
         Text(
@@ -535,6 +538,26 @@ private fun AppearanceCard(vm: AprsViewModel) {
             color = TextDim, fontSize = 11.sp,
             modifier = Modifier.padding(top = 6.dp)
         )
+
+        Spacer(Modifier.size(12.dp))
+
+        // -- incoming bubble-colour row -------------------------------------
+        Text("Incoming message bubble", color = TextDim, fontSize = 12.sp)
+        Spacer(Modifier.size(6.dp))
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            uk.aprsnet.client.ui.theme.BUBBLE_PALETTES.forEach { p ->
+                BubbleSwatch(
+                    topColour = p.top,
+                    bottomColour = p.bottom,
+                    selected = incomingBubbleId == p.id,
+                    onClick = {
+                        incomingBubbleId = p.id
+                        s.incomingBubbleColourId = p.id
+                    },
+                    modifier = Modifier.weight(1f).padding(horizontal = 2.dp)
+                )
+            }
+        }
     }
 }
 

@@ -142,6 +142,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("bubble_colour_id", 0).coerceIn(0, 5)
         set(v) = prefs.edit().putInt("bubble_colour_id", v.coerceIn(0, 5)).apply()
 
+    /** Incoming-bubble palette id (0..5). Default 0 (panel-elevated). */
+    var incomingBubbleColourId: Int
+        get() = prefs.getInt("incoming_bubble_colour_id", 0).coerceIn(0, 5)
+        set(v) = prefs.edit().putInt("incoming_bubble_colour_id", v.coerceIn(0, 5)).apply()
+
     /** Is the current local hour inside the quiet-hours window? */
     fun inQuietHours(now: java.util.Calendar = java.util.Calendar.getInstance()): Boolean {
         if (!quietHoursEnabled) return false

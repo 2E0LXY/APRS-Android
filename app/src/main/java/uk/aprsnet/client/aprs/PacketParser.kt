@@ -158,11 +158,13 @@ object PacketParser {
     private fun classify(call: String, table: Char, code: Char): StationType {
         val up = call.uppercase()
         return when {
-            code == '_' -> StationType.WEATHER
-            code == '\'' || code == 'g' -> StationType.GLIDER
-            code == 's' || code == 'Y' -> StationType.SHIP
-            up.contains("LORA") -> StationType.LORA
-            else -> StationType.HAM
+            up.contains("MMDVM") -> StationType.MMDVM
+                code == '_' || (code == 'W' && table == '\\') -> StationType.WEATHER
+                code == '\'' || code == 'g' || up.startsWith("OGN") -> StationType.GLIDER
+                code == 's' || code == 'Y' || code == 'C' -> StationType.SHIP
+                up.contains("LORA") || up.contains("MESH") -> StationType.LORA
+                code == 'r' || code == '#' || code == '&' || code == 'I' -> StationType.OBJECT
+                else -> StationType.HAM
         }
     }
 

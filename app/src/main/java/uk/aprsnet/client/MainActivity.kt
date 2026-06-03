@@ -108,7 +108,22 @@ class MainActivity : ComponentActivity() {
         // The service is started from AppRoot once permissions resolve.
         setContent {
             AprsNetTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                // Apply the user's chosen theme gradient at the root.
+                // Use the same SharedPreferences file SettingsStore uses.
+                val themePrefs = this@MainActivity.getSharedPreferences(
+                    "aprs_settings", android.content.Context.MODE_PRIVATE)
+                val themeId = themePrefs.getInt("theme_id", 0)
+                    .coerceIn(0, uk.aprsnet.client.ui.theme.APP_THEMES.lastIndex)
+                val theme = uk.aprsnet.client.ui.theme.APP_THEMES[themeId]
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(theme.gradientTop, theme.gradientBottom)
+                            )
+                        )
+                ) {
                     AppRoot(initialThread = pendingThread)
                 }
             }
