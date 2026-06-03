@@ -1,5 +1,6 @@
 package uk.aprsnet.client.ui.map
 
+import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.indication
@@ -7,6 +8,9 @@ import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
@@ -23,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -36,6 +41,7 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.bonuspack.clustering.RadiusMarkerClusterer
+import org.osmdroid.bonuspack.clustering.StaticCluster
 import org.osmdroid.views.overlay.Marker
 import uk.aprsnet.client.AprsViewModel
 import uk.aprsnet.client.model.Station
@@ -64,6 +70,7 @@ fun MapScreen(
     val clusterer = remember { mutableStateOf<RadiusMarkerClusterer?>(null) }
     val myMarker = remember { mutableStateOf<Marker?>(null) }
     var selected by remember { mutableStateOf<Station?>(null) }
+    var selectedCluster by remember { mutableStateOf<List<org.osmdroid.views.overlay.Marker>?>(null) }
     val myPos by vm.myPosition.collectAsState()
     val stations by vm.stations.collectAsState()
 
@@ -80,7 +87,11 @@ fun MapScreen(
                         controller.setZoom(8.0)
                         controller.setCenter(GeoPoint(53.7, -1.5))
                         // add clusterer overlay - markers will be added to it
-                        val c = RadiusMarkerClusterer(ctx)
+                        val c = TappableClusterer(ctx) { markersInCluster ->
+                            // Cluster tap -> list dialog instead of auto-zoom,
+                            // which fails when markers are coincident.
+                            selectedCluster = markersInCluster
+                        }
                         c.setRadius(100)
                         overlays.add(c)
                         clusterer.value = c
@@ -187,6 +198,54 @@ fun MapScreen(
     }
 
     // station-detail dialog (shown when a marker is tapped)
+    // Cluster tap dialog - list of callsigns in the cluster (better UX
+    // than auto-zoom for coincident markers which can't be visually
+    // separated even at max zoom).
+    selectedCluster?.let { clusterMarkers ->
+        val stationsByCall = stations
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { selectedCluster = null },
+            title = { androidx.compose.material3.Text("${clusterMarkers.size} stations here") },
+            text = {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier.heightIn(max = 360.dp)
+                ) {
+                    items(clusterMarkers) { mk ->
+                        val call = mk.title ?: "?"
+                        val st = stationsByCall[call]
+                        androidx.compose.foundation.layout.Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedCluster = null
+                                    if (st != null) selected = st
+                                }
+                                .padding(vertical = 10.dp, horizontal = 4.dp)
+                        ) {
+                            androidx.compose.material3.Text(
+                                call,
+                                modifier = Modifier.weight(1f),
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                            if (st != null) {
+                                androidx.compose.material3.Text(
+                                    uk.aprsnet.client.aprs.Symbols.describe(st.symbolTable, st.symbolCode),
+                                    color = uk.aprsnet.client.ui.theme.TextDim,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { selectedCluster = null }) {
+                    androidx.compose.material3.Text("Close")
+                }
+            }
+        )
+    }
+
     selected?.let { st ->
         StationDetailDialog(
             station = st,
@@ -199,6 +258,17 @@ fun MapScreen(
 }
 
 /** Incremental sync: add new markers, update existing ones in place. */
+/**
+ * Sync station markers with the clusterer.
+ *
+ * Strategy: the markers HashMap is the single source of truth for marker
+ * identity (so click handlers and other Marker state persist across calls).
+ * The clusterer's items list is rebuilt fresh from the HashMap each sync.
+ * This is O(n) per sync but bounded by the upstream .sample(200) so it
+ * runs at most 5x/sec. Defensive against any drift between the two stores
+ * - which is what caused the v2.3.1/v2.3.2 'cluster shows 2 but only 1
+ * marker visible after zoom' bug.
+ */
 private fun syncMarkers(
     map: MapView,
     markers: HashMap<String, Marker>,
@@ -207,10 +277,10 @@ private fun syncMarkers(
     hiddenCalls: Set<String> = emptySet(),
     onClick: (String) -> Unit
 ) {
-    // Remove markers for stations now hidden by a filter
-    hiddenCalls.forEach { call ->
-        markers.remove(call)?.let { m -> clusterer?.items?.remove(m) }
-    }
+    // 1. drop markers for filter-hidden stations
+    hiddenCalls.forEach { call -> markers.remove(call) }
+
+    // 2. add or update each visible station's marker
     stations.forEach { st ->
         val existing = markers[st.callsign]
         if (existing == null) {
@@ -222,11 +292,19 @@ private fun syncMarkers(
                 setOnMarkerClickListener { _, _ -> onClick(st.callsign); true }
             }
             markers[st.callsign] = m
-            clusterer?.add(m)
         } else {
             val gp = GeoPoint(st.lat, st.lon)
             if (existing.position != gp) existing.position = gp
+            // refresh icon too, in case station type/symbol changed
+            existing.icon = dotIcon(map, st.type, st.symbolTable, st.symbolCode)
         }
+    }
+
+    // 3. defensive rebuild of clusterer items from the HashMap (no duplicates,
+    //    no stale markers, guaranteed in sync with the visible set)
+    if (clusterer != null) {
+        clusterer.items.clear()
+        markers.values.forEach { clusterer.items.add(it) }
     }
 }
 
@@ -340,4 +418,37 @@ private fun myDotIcon(map: MapView): BitmapDrawable {
     val drawable = BitmapDrawable(map.context.resources, bmp)
     iconCache[key] = drawable
     return drawable
+}
+// ---------------------------------------------------------------------------
+// TappableClusterer
+// Intercepts cluster taps so we can show a list of callsigns instead of the
+// default zoom-to-bounding-box behaviour. The default behaviour is unhelpful
+// when two or more markers are coincident (or within ~100px even at max zoom)
+// because zooming doesn't visually separate them - the user sees count 2 but
+// only one pin after zoom.
+// ---------------------------------------------------------------------------
+private class TappableClusterer(
+    ctx: Context,
+    private val onClusterTap: (List<Marker>) -> Unit
+) : RadiusMarkerClusterer(ctx) {
+
+    override fun buildClusterMarker(cluster: StaticCluster?, mapView: MapView?): Marker {
+        val m = super.buildClusterMarker(cluster, mapView)
+        // Override the cluster icon's click handler. cluster.items holds the
+        // member Markers; we forward those to the dialog. Returning true
+        // consumes the touch so the default zoom-to-bbox doesn't also run.
+        m.setOnMarkerClickListener { _, _ ->
+            val items: List<Marker> = (0 until (cluster?.size ?: 0))
+                .mapNotNull { cluster?.getItem(it) }
+            if (items.size > 1) {
+                onClusterTap(items)
+                true
+            } else {
+                // single-marker cluster: fall through to normal marker click
+                items.firstOrNull()?.let { it.onMarkerClickDefault(it, mapView) }
+                true
+            }
+        }
+        return m
+    }
 }
