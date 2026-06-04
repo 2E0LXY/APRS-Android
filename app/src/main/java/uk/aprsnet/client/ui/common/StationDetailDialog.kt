@@ -49,12 +49,22 @@ fun StationDetailDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
-                station.callsign,
-                color = Accent,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            )
+            androidx.compose.foundation.layout.Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                uk.aprsnet.client.ui.common.AprsSymbolIcon(
+                    table = station.symbolTable,
+                    code = station.symbolCode,
+                    size = 32.dp
+                )
+                androidx.compose.foundation.layout.Spacer(Modifier.size(10.dp))
+                Text(
+                    station.callsign,
+                    color = Accent,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
         },
         text = {
             Column {

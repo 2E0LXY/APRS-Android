@@ -101,6 +101,9 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         NotificationHelper.ensureChannels(this)
         configureOsmdroid()
+        // Pre-decode the APRS symbol sheets so first map render doesn't
+        // block on bitmap factory work in the UI thread.
+        uk.aprsnet.client.aprs.AprsSymbols.init(this)
         pendingThread = intent?.getStringExtra(NotificationHelper.EXTRA_OPEN_THREAD)
         // foreground service is NOT started here. On API 34+ (and stricter
         // still on Android 16/17) starting foregroundServiceType=location

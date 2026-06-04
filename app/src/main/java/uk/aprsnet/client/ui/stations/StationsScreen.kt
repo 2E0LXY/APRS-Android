@@ -95,6 +95,13 @@ fun StationsScreen(
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Real APRS sprite next to callsign for quick identification
+                        uk.aprsnet.client.ui.common.AprsSymbolIcon(
+                            table = st.symbolTable,
+                            code = st.symbolCode,
+                            size = 28.dp
+                        )
+                        Spacer(Modifier.size(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(st.callsign, color = Accent,
                                 fontWeight = FontWeight.Bold, fontSize = 15.sp)

@@ -236,8 +236,18 @@ fun MapScreen(
                                     selectedCluster = null
                                     if (st != null) selected = st
                                 }
-                                .padding(vertical = 10.dp, horizontal = 4.dp)
+                                .padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                         ) {
+                            // Sprite icon - falls back to a coloured initial if unknown
+                            if (st != null) {
+                                uk.aprsnet.client.ui.common.AprsSymbolIcon(
+                                    table = st.symbolTable,
+                                    code = st.symbolCode,
+                                    size = 24.dp
+                                )
+                                androidx.compose.foundation.layout.Spacer(Modifier.size(10.dp))
+                            }
                             androidx.compose.material3.Text(
                                 call,
                                 modifier = Modifier.weight(1f),
@@ -355,12 +365,13 @@ private fun dotIcon(
     symbolCode: Char
 ): BitmapDrawable {
     val colour = typeColours[type] ?: 0xFF94A3B8.toInt()
-    val glyph = aprsGlyph(symbolTable, symbolCode)
-    val key = colour.toString() + "_" + (glyph ?: "")
+    // Cache key includes the symbol so a station changing symbol gets a
+    // fresh icon. Sprite-vs-glyph fallback handled below.
+    val key = "${colour}_${symbolTable}${symbolCode}"
     glyphIconCache[key]?.let { return it }
 
     val d = map.context.resources.displayMetrics.density
-    val sizePx = (20 * d).toInt()                // 20dp - was 14dp
+    val sizePx = (24 * d).toInt()                // 24dp - was 20dp
     val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bmp)
     val r = sizePx / 2f
@@ -373,15 +384,33 @@ private fun dotIcon(
     canvas.drawCircle(r, r, r, outline)
     canvas.drawCircle(r, r, r - 2f * d, fill)
 
-    if (glyph != null) {
-        val txt = Paint().apply {
-            isAntiAlias = true; color = AColor.WHITE
-            textAlign = Paint.Align.CENTER
-            isFakeBoldText = true
-            textSize = 9f * d
+    // Prefer the real APRS sprite over our 3-letter glyph fallback. The
+    // sprite is drawn slightly smaller than the inner fill so the colour
+    // ring stays visible at low zoom (type-colour cue) and the recognisable
+    // APRS symbol shows at high zoom.
+    val sprite = uk.aprsnet.client.aprs.AprsSymbols.bitmap(
+        map.context, symbolTable, symbolCode)
+    if (sprite != null) {
+        val spriteSize = (18 * d)        // 18dp sprite inside the 24dp circle
+        val left = r - spriteSize / 2f
+        val top  = r - spriteSize / 2f
+        val dst = android.graphics.RectF(left, top, left + spriteSize, top + spriteSize)
+        val src = android.graphics.Rect(0, 0, sprite.width, sprite.height)
+        canvas.drawBitmap(sprite, src, dst, Paint().apply { isAntiAlias = true; isFilterBitmap = true })
+    } else {
+        // Fallback: 3-letter glyph for symbols not in the sheet (shouldn't
+        // really happen but keeps unknown symbols readable).
+        val glyph = aprsGlyph(symbolTable, symbolCode)
+        if (glyph != null) {
+            val txt = Paint().apply {
+                isAntiAlias = true; color = AColor.WHITE
+                textAlign = Paint.Align.CENTER
+                isFakeBoldText = true
+                textSize = 9f * d
+            }
+            val fm = txt.fontMetrics
+            canvas.drawText(glyph, r, r - (fm.ascent + fm.descent) / 2f, txt)
         }
-        val fm = txt.fontMetrics
-        canvas.drawText(glyph, r, r - (fm.ascent + fm.descent) / 2f, txt)
     }
 
     val drawable = BitmapDrawable(map.context.resources, bmp)
