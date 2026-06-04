@@ -142,7 +142,17 @@ fun MapScreen(
             .collect { current ->
                 runCatching {
                     val s = vm.settings
+                    // Exclude own callsign from the clusterer. Our own beacons
+                    // arrive back via APRS-IS and would otherwise stack as a
+                    // 'shadow station' under the dedicated My-position pin -
+                    // producing the 'cluster shows 2 but only 1 visible' bug.
+                    val myCalls = setOf(
+                        s.callsign.uppercase(),
+                        s.fullCallsign.uppercase()
+                    )
                     val filtered = current.values.filter { st ->
+                        st.callsign.uppercase() !in myCalls
+                    }.filter { st ->
                         when (st.type) {
                             uk.aprsnet.client.model.StationType.HAM -> s.showHam
                             uk.aprsnet.client.model.StationType.WEATHER -> s.showWeather

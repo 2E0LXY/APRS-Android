@@ -61,6 +61,9 @@ import uk.aprsnet.client.ui.theme.BorderCol
  */
 @Composable
 fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
+    // Bumped by MemberAccountCard after a successful login so the
+    // sibling AprsCredentialsCard re-reads call/pass/ssid from settings.
+    var credentialsRefresh by remember { mutableStateOf(0) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -68,8 +71,8 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
             .padding(12.dp)
     ) {
         AppearanceCard(vm)
-        MemberAccountCard(vm)
-        AprsCredentialsCard(vm)
+        MemberAccountCard(vm, onCredentialsLoaded = { credentialsRefresh++ })
+        AprsCredentialsCard(vm, refreshKey = credentialsRefresh)
         PositionCard(vm)
         FiltersCard(vm)
         NotificationsCard(vm)
@@ -80,7 +83,7 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
 // Website member account
 // ============================================================================
 @Composable
-private fun MemberAccountCard(vm: AprsViewModel) {
+private fun MemberAccountCard(vm: AprsViewModel, onCredentialsLoaded: () -> Unit) {
     val s = vm.settings
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -165,6 +168,9 @@ private fun MemberAccountCard(vm: AprsViewModel) {
                             status = "Signed in - passcode loaded automatically"
                             statusIsError = false
                             password = ""
+                            // Refresh APRS Credentials card so the auto-filled
+                            // callsign + passcode become visible there.
+                            onCredentialsLoaded()
                         } else {
                             status = err
                             statusIsError = true
@@ -190,11 +196,11 @@ private fun MemberAccountCard(vm: AprsViewModel) {
 // APRS credentials (manual entry alternative to member sign-in)
 // ============================================================================
 @Composable
-private fun AprsCredentialsCard(vm: AprsViewModel) {
+private fun AprsCredentialsCard(vm: AprsViewModel, refreshKey: Int) {
     val s = vm.settings
-    var call by remember { mutableStateOf(s.callsign) }
-    var pass by remember { mutableStateOf(s.passcode) }
-    var ssid by remember { mutableStateOf(s.ssid) }
+    var call by remember(refreshKey) { mutableStateOf(s.callsign) }
+    var pass by remember(refreshKey) { mutableStateOf(s.passcode) }
+    var ssid by remember(refreshKey) { mutableStateOf(s.ssid) }
     var saved by remember { mutableStateOf(false) }
 
     Card("APRS Credentials") {
