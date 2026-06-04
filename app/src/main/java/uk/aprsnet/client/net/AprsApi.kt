@@ -177,10 +177,8 @@ object AprsApi {
                     put("enabled", enabled)
                     put("message", message)
                 }
-                val body = okhttp3.RequestBody.create(
-                    okhttp3.MediaType.parse("application/json"),
-                    payload.toString()
-                )
+                val body = payload.toString()
+                    .toRequestBody("application/json".toMediaTypeOrNull())
                 val req = Request.Builder()
                     .url("$BASE/api/admin/motd")
                     .header("Authorization", Credentials.basic(user, pass))
@@ -210,10 +208,8 @@ object AprsApi {
                     put("callsign", callsign.trim().uppercase())
                     put("reason", reason)
                 }
-                val body = okhttp3.RequestBody.create(
-                    okhttp3.MediaType.parse("application/json"),
-                    payload.toString()
-                )
+                val body = payload.toString()
+                    .toRequestBody("application/json".toMediaTypeOrNull())
                 val req = Request.Builder()
                     .url("$BASE/api/admin/bans")
                     .header("Authorization", Credentials.basic(user, pass))
