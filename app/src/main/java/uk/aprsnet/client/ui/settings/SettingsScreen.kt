@@ -281,19 +281,16 @@ private fun PositionCard(vm: AprsViewModel) {
             label = { Text("Beacon comment") }, singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         )
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-            OutlinedTextField(
-                value = symT, onValueChange = { symT = it.take(1) },
-                label = { Text("Symbol table") }, singleLine = true,
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(Modifier.size(10.dp))
-            OutlinedTextField(
-                value = symC, onValueChange = { symC = it.take(1) },
-                label = { Text("Symbol code") }, singleLine = true,
-                modifier = Modifier.weight(1f)
-            )
-        }
+        Text(
+            "APRS symbol (shown on aprs.fi and on other clients' maps)",
+            color = TextDim, fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        SymbolPicker(
+            currentTable = symT.firstOrNull() ?: '/',
+            currentCode  = symC.firstOrNull() ?: '>',
+            onChange = { t, c -> symT = t.toString(); symC = c.toString() }
+        )
         Text(
             "Smart beaconing sends position more often when moving fast, " +
                 "less often when still. Requires location permission.",
@@ -634,4 +631,112 @@ private fun BubbleSwatch(
             )
             .clickable(onClick = onClick)
     )
+}
+// ============================================================================
+// SymbolPicker - curated grid of common APRS symbols + current-selection
+// preview. Replaces the previous two text-field arrangement which gave no
+// visual feedback. Tapping a swatch updates symT/symC immediately - the
+// user still hits 'Save position settings' to persist.
+// ============================================================================
+private data class SymbolChoice(val table: Char, val code: Char, val label: String)
+
+private val SYMBOL_CHOICES = listOf(
+    SymbolChoice('/', '-', "QTH"),
+    SymbolChoice('/', '>', "Car"),
+    SymbolChoice('/', '<', "M/cycle"),
+    SymbolChoice('/', 'b', "Bike"),
+    SymbolChoice('/', '[', "Jogger"),
+    SymbolChoice('/', 'k', "Truck"),
+    SymbolChoice('/', 'u', "18W"),
+    SymbolChoice('/', 'R', "RV"),
+    SymbolChoice('/', 'v', "Van"),
+    SymbolChoice('/', 'Y', "Yacht"),
+    SymbolChoice('/', 's', "Ship"),
+    SymbolChoice('/', 'C', "Canoe"),
+    SymbolChoice('/', '^', "Aircraft"),
+    SymbolChoice('/', '\'', "Sm. air"),
+    SymbolChoice('/', 'X', "Heli"),
+    SymbolChoice('/', 'O', "Balloon"),
+    SymbolChoice('/', 'g', "Glider"),
+    SymbolChoice('/', '_', "WX"),
+    SymbolChoice('/', '#', "Digi"),
+    SymbolChoice('/', '&', "IGate"),
+    SymbolChoice('\\', 'r', "Repeat"),
+    SymbolChoice('/', 'H', "Hotel"),
+    SymbolChoice('/', 'h', "Hosp"),
+    SymbolChoice('/', ';', "Camp")
+)
+
+@Composable
+private fun SymbolPicker(
+    currentTable: Char,
+    currentCode: Char,
+    onChange: (Char, Char) -> Unit
+) {
+    // Current selection preview - sprite + table/code/label
+    val currentChoice = SYMBOL_CHOICES.firstOrNull {
+        it.table == currentTable && it.code == currentCode
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        uk.aprsnet.client.ui.common.AprsSymbolIcon(
+            table = currentTable, code = currentCode, size = 40.dp)
+        Spacer(Modifier.size(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "Current: $currentTable $currentCode" +
+                    (currentChoice?.let { "  -  ${it.label}" } ?: "  -  custom"),
+                color = TextBase, fontWeight = FontWeight.Bold, fontSize = 14.sp
+            )
+            Text("Tap a swatch below to change", color = TextDim, fontSize = 11.sp)
+        }
+    }
+
+    // 6-column grid via Column-of-Rows (works inside scrolling parent;
+    // LazyVerticalGrid would conflict with the surrounding scroll).
+    val cols = 6
+    SYMBOL_CHOICES.chunked(cols).forEach { row ->
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+            row.forEach { choice ->
+                val selected = choice.table == currentTable && choice.code == currentCode
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 2.dp)
+                        .clickable { onChange(choice.table, choice.code) }
+                        .padding(vertical = 6.dp),
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                ) {
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .then(
+                                if (selected)
+                                    Modifier.border(
+                                        width = 2.dp,
+                                        color = Accent,
+                                        shape = androidx.compose.foundation.shape.CircleShape
+                                    ).padding(2.dp)
+                                else Modifier
+                            )
+                    ) {
+                        uk.aprsnet.client.ui.common.AprsSymbolIcon(
+                            table = choice.table, code = choice.code, size = 36.dp)
+                    }
+                    Text(
+                        choice.label,
+                        color = if (selected) Accent else TextDim,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+            // Pad short final row so cells stay aligned
+            repeat(cols - row.size) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+        }
+    }
 }
