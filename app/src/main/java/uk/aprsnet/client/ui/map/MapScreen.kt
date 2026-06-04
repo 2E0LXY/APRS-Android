@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
@@ -123,7 +124,7 @@ fun MapScreen(
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
                 .pointerInput(Unit) {
-                    androidx.compose.foundation.gestures.detectTapGestures(
+                    detectTapGestures(
                         onLongPress = { vm.beaconNow() }
                     )
                 }

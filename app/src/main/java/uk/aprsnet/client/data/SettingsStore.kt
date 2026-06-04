@@ -100,6 +100,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("filter_other", true)
         set(v) = prefs.edit().putBoolean("filter_other", v).apply()
 
+    /** MMDVM digital-voice hotspots (DMR / D-STAR / YSF). Matched by callsign. */
+    var showMmdvm: Boolean
+        get() = prefs.getBoolean("filter_mmdvm", true)
+        set(v) = prefs.edit().putBoolean("filter_mmdvm", v).apply()
+
     // -- Notifications -----------------------------------------------------
     var notifyMessages: Boolean
         get() = prefs.getBoolean("notify_messages", true)
