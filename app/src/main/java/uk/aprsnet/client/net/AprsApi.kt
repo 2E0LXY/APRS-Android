@@ -163,16 +163,106 @@ object AprsApi {
         }
     /** Admin config (basic-auth). Returns the raw config JSON or null. */
     suspend fun adminConfig(user: String, pass: String): JSONObject? =
+        adminGetObject(user, pass, "/api/config")
+
+    /** GET /api/admin/motd -> {enabled, message, updated} */
+    suspend fun adminMotdGet(user: String, pass: String): JSONObject? =
+        adminGetObject(user, pass, "/api/admin/motd")
+
+    /** POST /api/admin/motd with {enabled, message}. Returns true on 2xx. */
+    suspend fun adminMotdSet(user: String, pass: String, enabled: Boolean, message: String): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val payload = JSONObject().apply {
+                    put("enabled", enabled)
+                    put("message", message)
+                }
+                val body = okhttp3.RequestBody.create(
+                    okhttp3.MediaType.parse("application/json"),
+                    payload.toString()
+                )
+                val req = Request.Builder()
+                    .url("$BASE/api/admin/motd")
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .post(body)
+                    .build()
+                client.newCall(req).execute().use { resp -> resp.isSuccessful }
+            }.getOrDefault(false)
+        }
+
+    /** GET /api/admin/members -> JSONArray of member records. */
+    suspend fun adminMembers(user: String, pass: String): org.json.JSONArray? =
+        adminGetArray(user, pass, "/api/admin/members")
+
+    /** GET /api/admin/bans -> JSONArray of {callsign, reason, added_by, added}. */
+    suspend fun adminBans(user: String, pass: String): org.json.JSONArray? =
+        adminGetArray(user, pass, "/api/admin/bans")
+
+    /** GET /api/admin/audit?limit=N -> JSONArray of audit entries. */
+    suspend fun adminAudit(user: String, pass: String, limit: Int = 50): org.json.JSONArray? =
+        adminGetArray(user, pass, "/api/admin/audit?limit=$limit")
+
+    /** POST /api/admin/bans with {callsign, reason}. Returns true on 2xx. */
+    suspend fun adminBanAdd(user: String, pass: String, callsign: String, reason: String): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val payload = JSONObject().apply {
+                    put("callsign", callsign.trim().uppercase())
+                    put("reason", reason)
+                }
+                val body = okhttp3.RequestBody.create(
+                    okhttp3.MediaType.parse("application/json"),
+                    payload.toString()
+                )
+                val req = Request.Builder()
+                    .url("$BASE/api/admin/bans")
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .post(body)
+                    .build()
+                client.newCall(req).execute().use { resp -> resp.isSuccessful }
+            }.getOrDefault(false)
+        }
+
+    /** DELETE /api/admin/bans?callsign=X. Returns true on 2xx. */
+    suspend fun adminBanRemove(user: String, pass: String, callsign: String): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val encoded = java.net.URLEncoder.encode(callsign.trim().uppercase(), "UTF-8")
+                val req = Request.Builder()
+                    .url("$BASE/api/admin/bans?callsign=$encoded")
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .delete()
+                    .build()
+                client.newCall(req).execute().use { resp -> resp.isSuccessful }
+            }.getOrDefault(false)
+        }
+
+    private suspend fun adminGetObject(user: String, pass: String, path: String): JSONObject? =
         withContext(Dispatchers.IO) {
             runCatching {
                 val req = Request.Builder()
-                    .url("$BASE/api/config")
+                    .url("$BASE$path")
                     .header("Authorization", Credentials.basic(user, pass))
                     .build()
                 client.newCall(req).execute().use { resp ->
                     if (!resp.isSuccessful) return@runCatching null
                     val body = resp.body?.string() ?: return@runCatching null
                     JSONObject(body)
+                }
+            }.getOrNull()
+        }
+
+    private suspend fun adminGetArray(user: String, pass: String, path: String): org.json.JSONArray? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val req = Request.Builder()
+                    .url("$BASE$path")
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@runCatching null
+                    val body = resp.body?.string() ?: return@runCatching null
+                    org.json.JSONArray(body)
                 }
             }.getOrNull()
         }
