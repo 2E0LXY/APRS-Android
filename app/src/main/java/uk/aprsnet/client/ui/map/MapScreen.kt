@@ -51,6 +51,25 @@ import org.osmdroid.views.overlay.Marker
 import uk.aprsnet.client.AprsViewModel
 import uk.aprsnet.client.model.Station
 import uk.aprsnet.client.ui.common.StationDetailDialog
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import kotlin.math.asin
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * The live APRS map (osmdroid - same OSM tiles as the website).
@@ -80,6 +99,7 @@ fun MapScreen(
     val myPos by vm.myPosition.collectAsState()
     val stations by vm.stations.collectAsState()
     val filterTick by vm.filterTick.collectAsState()
+    var showFilters by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
@@ -136,43 +156,53 @@ fun MapScreen(
         ) {
             Icon(Icons.Default.MyLocation, contentDescription = "My location")
         }
+
+        // ── Quick-filter panel ────────────────────────────────────────
+        Column(
+            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            AnimatedVisibility(visible = showFilters) {
+                MapFilterPanel(vm = vm)
+            }
+            SmallFloatingActionButton(
+                onClick = { showFilters = !showFilters },
+                containerColor = if (showFilters)
+                    androidx.compose.material3.MaterialTheme.colorScheme.primary
+                else androidx.compose.material3.MaterialTheme.colorScheme.surface
+            ) {
+                Icon(Icons.Default.FilterList, contentDescription = "Filter stations")
+            }
+        }
     }
 
-    // station markers - sampled, incremental, with click-to-detail
+    // station markers – immediate filter apply on tick change, then sampled ongoing
     LaunchedEffect(mapState.value, filterTick) {
         val map = mapState.value ?: return@LaunchedEffect
+        val c = clusterer.value
+
+        // Apply filter immediately so toggle response is instant (no 200ms wait)
+        runCatching {
+            val snap = vm.stations.value
+            val filtered = applyFilters(snap, vm)
+            syncMarkers(map, markers, c, filtered,
+                hiddenCalls = snap.keys - filtered.map { it.callsign }.toSet()
+            ) { call -> selected = vm.stations.value[call] }
+            c?.invalidate()
+            map.invalidate()
+        }
+
+        // Continue sampling live packet arrivals
         vm.stations
             .sample(200)
             .distinctUntilChanged()
             .collect { current ->
                 runCatching {
-                    val s = vm.settings
-                    // Exclude own callsign from the clusterer. Our own beacons
-                    // arrive back via APRS-IS and would otherwise stack as a
-                    // 'shadow station' under the dedicated My-position pin -
-                    // producing the 'cluster shows 2 but only 1 visible' bug.
-                    val myCalls = setOf(
-                        s.callsign.uppercase(),
-                        s.fullCallsign.uppercase()
-                    )
-                    val filtered = current.values.filter { st ->
-                        st.callsign.uppercase() !in myCalls
-                    }.filter { st ->
-                        when (st.type) {
-                            uk.aprsnet.client.model.StationType.HAM -> s.showHam
-                            uk.aprsnet.client.model.StationType.WEATHER -> s.showWeather
-                            uk.aprsnet.client.model.StationType.GLIDER -> s.showGlider
-                            uk.aprsnet.client.model.StationType.SHIP -> s.showShip
-                            uk.aprsnet.client.model.StationType.LORA -> s.showLora
-                            uk.aprsnet.client.model.StationType.MMDVM -> s.showMmdvm
-                            uk.aprsnet.client.model.StationType.OBJECT,
-                            uk.aprsnet.client.model.StationType.OTHER -> s.showOther
-                        }
-                    }
-                    val c = clusterer.value
-                    syncMarkers(map, markers, c, filtered, hiddenCalls = current.keys - filtered.map { it.callsign }.toSet()) { call ->
-                        selected = current[call]
-                    }
+                    val filtered = applyFilters(current, vm)
+                    syncMarkers(map, markers, c, filtered,
+                        hiddenCalls = current.keys - filtered.map { it.callsign }.toSet()
+                    ) { call -> selected = vm.stations.value[call] }
                     c?.invalidate()
                     map.invalidate()
                 }
@@ -499,5 +529,115 @@ private class TappableClusterer(
             true
         }
         return m
+    }
+}
+
+// ============================================================================
+// Filter helpers
+// ============================================================================
+private fun applyFilters(
+    current: Map<String, uk.aprsnet.client.model.Station>,
+    vm: AprsViewModel
+): List<uk.aprsnet.client.model.Station> {
+    val s = vm.settings
+    val myCalls = setOf(s.callsign.uppercase(), s.fullCallsign.uppercase())
+    val myFix   = vm.myPosition.value
+    val maxKm   = s.filterRadiusKm
+    return current.values
+        .filter { st -> st.callsign.uppercase() !in myCalls }
+        .filter { st ->
+            when (st.type) {
+                StationType.HAM     -> s.showHam
+                StationType.WEATHER -> s.showWeather
+                StationType.GLIDER  -> s.showGlider
+                StationType.SHIP    -> s.showShip
+                StationType.LORA    -> s.showLora
+                StationType.MMDVM   -> s.showMmdvm
+                StationType.OBJECT,
+                StationType.OTHER   -> s.showOther
+            }
+        }
+        .filter { st ->
+            maxKm == 0 || myFix == null ||
+                haversine(myFix.lat, myFix.lon, st.lat, st.lon) <= maxKm
+        }
+}
+
+private fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val R = 6371.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = sin(dLat / 2).pow(2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
+    return R * 2 * asin(sqrt(a))
+}
+
+// ============================================================================
+// Map quick-filter overlay
+// ============================================================================
+@androidx.compose.runtime.Composable
+private fun MapFilterPanel(vm: AprsViewModel) {
+    val s = vm.settings
+    var ham    by remember { mutableStateOf(s.showHam) }
+    var wx     by remember { mutableStateOf(s.showWeather) }
+    var ship   by remember { mutableStateOf(s.showShip) }
+    var glider by remember { mutableStateOf(s.showGlider) }
+    var lora   by remember { mutableStateOf(s.showLora) }
+    var mmdvm  by remember { mutableStateOf(s.showMmdvm) }
+    var other  by remember { mutableStateOf(s.showOther) }
+    val distOptions = listOf(0 to "All", 50 to "50km", 100 to "100km", 250 to "250km", 500 to "500km")
+    var distIdx by remember {
+        mutableStateOf(distOptions.indexOfFirst { it.first == s.filterRadiusKm }.coerceAtLeast(0))
+    }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xEE1E2A3F),
+        modifier = Modifier.padding(bottom = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Station types", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                MapChip(ham,    "HAM",     0xFF3B82F6) { ham    = !ham;    s.showHam     = ham;    vm.tickFilters() }
+                MapChip(wx,     "WX",      0xFF22C55E) { wx     = !wx;     s.showWeather = wx;     vm.tickFilters() }
+                MapChip(ship,   "Ships",   0xFF06B6D4) { ship   = !ship;   s.showShip    = ship;   vm.tickFilters() }
+                MapChip(glider, "Gliders", 0xFFF59E0B) { glider = !glider; s.showGlider  = glider; vm.tickFilters() }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                MapChip(lora,  "LoRa",  0xFFA855F7) { lora  = !lora;  s.showLora  = lora;  vm.tickFilters() }
+                MapChip(mmdvm, "MMDVM", 0xFFEC4899) { mmdvm = !mmdvm; s.showMmdvm = mmdvm; vm.tickFilters() }
+                MapChip(other, "Other", 0xFF94A3B8) { other = !other; s.showOther = other; vm.tickFilters() }
+            }
+            Text("Distance", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                distOptions.forEachIndexed { idx, (km, label) ->
+                    MapChip(distIdx == idx, label, 0xFF4B6080) {
+                        distIdx = idx
+                        s.filterRadiusKm = km
+                        vm.tickFilters()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun MapChip(selected: Boolean, label: String, activeColor: Long, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (selected) Color(activeColor) else Color(0x44FFFFFF),
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
     }
 }

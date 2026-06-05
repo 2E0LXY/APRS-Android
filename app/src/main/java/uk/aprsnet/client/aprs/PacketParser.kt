@@ -164,7 +164,8 @@ object PacketParser {
             code == '\'' || code == 'g' || code == '^' ||
                 up.startsWith("OGN") -> StationType.GLIDER
             code == 's' || code == 'Y' || code == 'C' ||
-                code == 'v' || code == 'b' -> StationType.SHIP
+                (table == '\\' && code == 's') ||
+                up.matches(Regex("[0-9]{6,9}.*")) -> StationType.SHIP
             up.contains("LORA") || up.contains("MESH") -> StationType.LORA
             code == 'r' || code == '#' || code == '&' || code == 'I' -> StationType.OBJECT
             else -> StationType.HAM

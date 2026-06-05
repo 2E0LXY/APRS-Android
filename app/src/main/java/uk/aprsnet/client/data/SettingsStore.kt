@@ -66,6 +66,11 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("beacon_comment", "APRS Net Android") ?: "APRS Net Android"
         set(v) = prefs.edit().putString("beacon_comment", v).apply()
 
+    /** Distance filter – 0 means no limit. */
+    var filterRadiusKm: Int
+        get() = prefs.getInt("filter_radius_km", 0)
+        set(v) = prefs.edit().putInt("filter_radius_km", v).apply()
+
     /** APRS status text – transmitted as a separate >status packet alongside each beacon. */
     var statusText: String
         get() = prefs.getString("status_text", "") ?: ""
