@@ -48,6 +48,17 @@ import uk.aprsnet.client.ui.theme.AccentAmber
 import uk.aprsnet.client.ui.theme.AccentLime
 import uk.aprsnet.client.ui.theme.AccentPurple
 import uk.aprsnet.client.AprsViewModel
+import android.app.Activity
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.platform.LocalContext
 import uk.aprsnet.client.ui.common.GlassCard
 import uk.aprsnet.client.ui.theme.Accent
 import uk.aprsnet.client.ui.theme.BgPanel
@@ -84,6 +95,8 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
         FiltersCard(vm)
         NotificationsCard(vm)
         StatusSection(vm)
+        HelpCard()
+        CloseAppCard()
     }
 }
 
@@ -870,5 +883,158 @@ private fun statusBeaconAge(ts: Long): String {
         diff < 60_000     -> "${diff / 1000}s ago"
         diff < 3_600_000  -> "${diff / 60_000}m ago"
         else              -> "${diff / 3_600_000}h ago"
+    }
+}
+
+// ============================================================================
+// Help Card
+// ============================================================================
+@Composable
+private fun HelpCard() {
+    var expanded by remember { mutableStateOf(false) }
+
+    GlassCard {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.HelpOutline, contentDescription = null,
+                    tint = Accent, modifier = Modifier.size(20.dp))
+                Text("Help & Instructions", color = TextHi,
+                    fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            }
+            Icon(
+                if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null, tint = TextDim
+            )
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier.padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                HelpSection("Getting Started") {
+                    HelpItem("1.", "Tap Settings (gear icon) and enter your callsign and APRS-IS passcode under Credentials.")
+                    HelpItem("2.", "Set Position / Beaconing mode to Smart. Enter a beacon comment and optionally a status text.")
+                    HelpItem("3.", "Tap Save. The map will populate with live stations within seconds.")
+                    HelpItem("Note", "Receiving works without credentials. Sending messages and beaconing require a valid callsign/passcode pair.")
+                }
+
+                HorizontalDivider(color = TextDim.copy(alpha = 0.2f))
+
+                HelpSection("Map") {
+                    HelpItem("Markers", "Every heard APRS station appears as a symbol on the map. Tap any marker to open the station detail dialog showing type, position, distance, bearing, path, and comment.")
+                    HelpItem("My Location", "The purple button (bottom-right) centres the map on your GPS fix. Long-press it to beacon your position immediately.")
+                    HelpItem("Filter", "The funnel button (bottom-left) opens the quick-filter panel. Toggle station types on/off and set a distance limit. Changes apply instantly.")
+                    HelpItem("Ships", "Live AIS maritime vessels are streamed from aisstream.io via the server and appear as ship markers when Ships is enabled.")
+                    HelpItem("Clusters", "At low zoom levels, nearby stations are grouped into numbered cluster bubbles. Tap to zoom in and expand.")
+                }
+
+                HorizontalDivider(color = TextDim.copy(alpha = 0.2f))
+
+                HelpSection("Filters") {
+                    HelpItem("HAM", "Standard amateur radio / APRS stations.")
+                    HelpItem("WX", "CWOP weather stations (wind, temperature, rain).")
+                    HelpItem("Ships", "AIS maritime vessels and APRS-IS ship objects.")
+                    HelpItem("Gliders", "OGN glider and light aircraft trackers.")
+                    HelpItem("LoRa", "LoRa-APRS digipeaters, trackers, and iGates.")
+                    HelpItem("MMDVM", "MMDVM and Pistar hotspots (DMR, D-STAR, YSF).")
+                    HelpItem("Other", "Objects, repeaters, digipeaters, and unclassified stations.")
+                    HelpItem("Distance", "Only show stations within the selected radius of your GPS fix. Set to All to show everything regardless of range.")
+                }
+
+                HorizontalDivider(color = TextDim.copy(alpha = 0.2f))
+
+                HelpSection("Messaging") {
+                    HelpItem("Send", "Tap a station marker → Send message in the detail dialog. Or tap the Message tab → tap a conversation.")
+                    HelpItem("ACK", "Outgoing message bubbles turn green when the recipient ACKs the message. Unacknowledged messages are retried automatically.")
+                    HelpItem("Incoming", "Incoming messages trigger a notification. Tap it to open the conversation.")
+                    HelpItem("Limit", "APRS messages are limited to 67 characters. The character counter shows remaining space.")
+                }
+
+                HorizontalDivider(color = TextDim.copy(alpha = 0.2f))
+
+                HelpSection("Beaconing") {
+                    HelpItem("Smart", "Beacons frequently when moving, slows when stationary. Recommended for mobiles and trackers.")
+                    HelpItem("Fixed", "Beacons at a fixed interval regardless of movement.")
+                    HelpItem("Off", "Disables position beaconing entirely.")
+                    HelpItem("Comment", "Short text appended to each position beacon — visible on aprs.fi and other APRS clients.")
+                    HelpItem("Status", "Sent as a separate APRS status packet (>) alongside each position beacon.")
+                    HelpItem("Symbol", "The APRS symbol shown on maps. Use the symbol table and code fields to customise.")
+                    HelpItem("Background", "Beaconing continues in the background via a foreground service. Do not force-stop the app.")
+                }
+
+                HorizontalDivider(color = TextDim.copy(alpha = 0.2f))
+
+                HelpSection("Connection") {
+                    HelpItem("WS State", "AUTH = connected and authenticated, CONN = connected but not yet authed, ... = connecting, OFF = disconnected.")
+                    HelpItem("Auto-reconnect", "The app reconnects automatically after any disconnect. No manual action needed.")
+                    HelpItem("Passcode", "Your APRS-IS passcode is calculated from your callsign. Use Utilities → Passcode Calculator if you do not know yours.")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HelpSection(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, color = Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        content()
+    }
+}
+
+@Composable
+private fun HelpItem(label: String, text: String) {
+    Row(modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(label, color = TextDim, fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.widthIn(min = 52.dp))
+        Text(text, color = TextBase, fontSize = 12.sp,
+            modifier = Modifier.weight(1f))
+    }
+}
+
+// ============================================================================
+// Close App Card
+// ============================================================================
+@Composable
+private fun CloseAppCard() {
+    val context = LocalContext.current
+    GlassCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Close App", color = TextHi,
+                    fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text("Stops all background services and exits completely.",
+                    color = TextDim, fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 2.dp))
+            }
+            Button(
+                onClick = {
+                    (context as? Activity)?.finishAffinity()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Err.copy(alpha = 0.85f)
+                )
+            ) {
+                Icon(Icons.Default.PowerSettingsNew, contentDescription = null,
+                    modifier = Modifier.size(16.dp))
+                Spacer(Modifier.size(6.dp))
+                Text("Close", fontSize = 13.sp)
+            }
+        }
     }
 }
