@@ -164,7 +164,31 @@ fun MapScreen(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             AnimatedVisibility(visible = showFilters) {
-                MapFilterPanel(vm = vm)
+                Column {
+                    // Diagnostic line - visible while the filter panel is open.
+                    // Shows: total stations in memory, count after filters apply,
+                    // and the current filter-tick counter. If 'total' stays at 0
+                    // there's no APRS-IS data; if total > 0 but visible = 0 the
+                    // filter is blocking everything; if visible > 0 but the map
+                    // is empty the marker rendering pipeline is the problem.
+                    val total = stations.size
+                    val visible = remember(stations, filterTick) {
+                        applyFilters(stations, vm).size
+                    }
+                    androidx.compose.material3.Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xEE1E2A3F),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    ) {
+                        Text(
+                            "diag: $total stations | $visible visible | tick #$filterTick",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                    MapFilterPanel(vm = vm)
+                }
             }
             SmallFloatingActionButton(
                 onClick = { showFilters = !showFilters },
