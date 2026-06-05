@@ -30,24 +30,24 @@ jobs:
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.7
 
-      - name: Build debug APK
+      - name: Build APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Rename APK
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/debug/app-debug.apk \
-             dist/APRS-Net-Android-debug.apk
+             dist/APRS-Net-Android.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: aprs-net-android-apk
-          path: dist/APRS-Net-Android-debug.apk
+          path: dist/APRS-Net-Android.apk
 
       - name: Publish Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/APRS-Net-Android-debug.apk
+          files: dist/APRS-Net-Android.apk
           generate_release_notes: true
