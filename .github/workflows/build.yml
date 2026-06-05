@@ -30,24 +30,40 @@ jobs:
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.7
 
-      - name: Build APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > aprs-net-release.jks
 
-      - name: Rename APK
+      - name: Build release AAB
+        run: |
+          ./gradlew bundleRelease --no-daemon --stacktrace \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/aprs-net-release.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
+      - name: Build debug APK (sideload)
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Collect outputs
         run: |
           mkdir -p dist
+          cp app/build/outputs/bundle/release/app-release.aab \
+             dist/APRS-Net-Android.aab
           cp app/build/outputs/apk/debug/app-debug.apk \
              dist/APRS-Net-Android.apk
 
-      - name: Upload APK artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: aprs-net-android-apk
-          path: dist/APRS-Net-Android.apk
+          name: aprs-net-android
+          path: dist/
 
       - name: Publish Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/APRS-Net-Android.apk
+          files: |
+            dist/APRS-Net-Android.aab
+            dist/APRS-Net-Android.apk
           generate_release_notes: true
