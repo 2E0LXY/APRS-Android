@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import android.view.View
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color as AColor
@@ -65,6 +66,7 @@ import uk.aprsnet.client.ui.common.StationDetailDialog
 fun MapScreen(
     vm: AprsViewModel,
     onSendMessage: (String) -> Unit,
+    active: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val mapState = remember { mutableStateOf<MapView?>(null) }
@@ -81,6 +83,7 @@ fun MapScreen(
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
+            update = { view -> view.visibility = if (active) View.VISIBLE else View.INVISIBLE },
             factory = { ctx ->
                 runCatching {
                     MapView(ctx).apply {

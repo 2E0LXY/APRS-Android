@@ -40,6 +40,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.runtime.collectAsState
+import uk.aprsnet.client.net.AprsWebSocket
+import uk.aprsnet.client.ui.common.RingProgress
+import uk.aprsnet.client.ui.theme.AccentAmber
+import uk.aprsnet.client.ui.theme.AccentLime
+import uk.aprsnet.client.ui.theme.AccentPurple
 import uk.aprsnet.client.AprsViewModel
 import uk.aprsnet.client.ui.common.GlassCard
 import uk.aprsnet.client.ui.theme.Accent
@@ -76,6 +83,7 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
         PositionCard(vm)
         FiltersCard(vm)
         NotificationsCard(vm)
+        StatusSection(vm)
     }
 }
 
@@ -738,5 +746,117 @@ private fun SymbolPicker(
                 Spacer(modifier = Modifier.weight(1f))
             }
         }
+    }
+}
+
+// ============================================================================
+// Status section - appended below settings cards (mirrors StatusScreen content)
+// ============================================================================
+@Composable
+private fun StatusSection(vm: AprsViewModel) {
+    val status by vm.status.collectAsState()
+    val conn   by vm.connState.collectAsState()
+    val stations by vm.stations.collectAsState()
+    val lastBeaconAt by vm.beacon.lastBeaconAt.collectAsState()
+    val myFix  by vm.myPosition.collectAsState()
+
+    // Ring gauges
+    GlassCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val s = status
+            RingProgress(
+                fraction = (stations.size / 1000f).coerceAtMost(1f),
+                value = stations.size.toString(),
+                label = "ON MAP",
+                gradient = listOf(Accent, AccentLime, Accent)
+            )
+            RingProgress(
+                fraction = if (s != null && s.upstreamConnected) 1f else 0f,
+                value = if (s != null && s.upstreamConnected) "UP" else "DOWN",
+                label = "UPSTREAM",
+                gradient = listOf(AccentLime, Accent, AccentLime)
+            )
+            RingProgress(
+                fraction = when (conn) {
+                    AprsWebSocket.ConnState.AUTHED       -> 1f
+                    AprsWebSocket.ConnState.CONNECTED    -> 0.7f
+                    AprsWebSocket.ConnState.CONNECTING   -> 0.3f
+                    AprsWebSocket.ConnState.DISCONNECTED -> 0f
+                },
+                value = when (conn) {
+                    AprsWebSocket.ConnState.AUTHED       -> "AUTH"
+                    AprsWebSocket.ConnState.CONNECTED    -> "CONN"
+                    AprsWebSocket.ConnState.CONNECTING   -> "..."
+                    AprsWebSocket.ConnState.DISCONNECTED -> "OFF"
+                },
+                label = "WS",
+                gradient = listOf(AccentPurple, Accent, AccentPurple)
+            )
+        }
+    }
+
+    // Connection card
+    GlassCard(title = "Connection") {
+        StatusRow("WebSocket", when (conn) {
+            AprsWebSocket.ConnState.AUTHED       -> "Connected (authenticated)"
+            AprsWebSocket.ConnState.CONNECTED    -> "Connected"
+            AprsWebSocket.ConnState.CONNECTING   -> "Connecting..."
+            AprsWebSocket.ConnState.DISCONNECTED -> "Disconnected"
+        }, valueColour = when (conn) {
+            AprsWebSocket.ConnState.AUTHED       -> Ok
+            AprsWebSocket.ConnState.DISCONNECTED -> Err
+            else                                 -> TextBase
+        })
+        StatusRow("Stations on map", stations.size.toString())
+    }
+
+    // Beacon card
+    GlassCard(title = "Position beacon") {
+        val mode = vm.settings.positionMode
+        StatusRow("Mode", mode.replaceFirstChar { it.uppercase() },
+            valueColour = if (mode == "smart") Ok else AccentAmber)
+        StatusRow("Have GPS fix?", if (myFix == null) "No" else "Yes",
+            valueColour = if (myFix == null) Err else Ok)
+        StatusRow("Last beacon", statusBeaconAge(lastBeaconAt))
+    }
+
+    // Server card
+    GlassCard(title = "Server") {
+        val s = status
+        if (s == null) {
+            Text("Loading server status...", color = TextDim, fontSize = 13.sp)
+        } else {
+            StatusRow("Uptime", s.uptime)
+            StatusRow("Packets received", s.packetsRx.toString())
+            StatusRow("Upstream", if (s.upstreamConnected) "Connected" else "Down",
+                valueColour = if (s.upstreamConnected) Ok else Err)
+            StatusRow("Server stations", s.stations.toString())
+        }
+    }
+}
+
+@Composable
+private fun StatusRow(
+    label: String,
+    value: String,
+    valueColour: androidx.compose.ui.graphics.Color = TextBase
+) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+        Text(label, color = TextDim, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Text(value, color = valueColour, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+    }
+}
+
+private fun statusBeaconAge(ts: Long): String {
+    if (ts <= 0L) return "Never"
+    val diff = System.currentTimeMillis() - ts
+    return when {
+        diff < 60_000     -> "${diff / 1000}s ago"
+        diff < 3_600_000  -> "${diff / 60_000}m ago"
+        else              -> "${diff / 3_600_000}h ago"
     }
 }

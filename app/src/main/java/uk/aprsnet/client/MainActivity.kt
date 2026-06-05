@@ -78,6 +78,7 @@ import uk.aprsnet.client.ui.iss.IssScreen
 import uk.aprsnet.client.ui.admin.AdminScreen
 import uk.aprsnet.client.ui.theme.AprsNetTheme
 import uk.aprsnet.client.ui.theme.Accent
+import uk.aprsnet.client.ui.theme.BgDeep
 import uk.aprsnet.client.ui.theme.BgHeader
 import uk.aprsnet.client.ui.theme.TextDim
 import uk.aprsnet.client.ui.theme.TextHi
@@ -241,32 +242,38 @@ private fun AppRoot(initialThread: String?) {
             .background(bgBrush)
             .safeDrawingPadding()
     ) {
-        TopBar(
-            conn = conn,
-            stationCount = stations.size,
-            title = screenTitle(screen, openThread),
-            showBack = (screen == Screen.MESSAGES && openThread != null) || !isPrimaryTab,
-            onBack = {
-                if (screen == Screen.MESSAGES && openThread != null) openThread = null
-                else screen = Screen.MAP
-            },
-            onMenu = { screen = it }
-        )
+        if (!isPrimaryTab || (screen == Screen.MESSAGES && openThread != null)) {
+            SimpleBackBar(
+                title = screenTitle(screen, openThread),
+                onBack = {
+                    if (screen == Screen.MESSAGES && openThread != null) openThread = null
+                    else screen = Screen.MAP
+                }
+            )
+        }
         Box(modifier = Modifier.weight(1f)) {
-            when (screen) {
-                Screen.MAP -> MapScreen(vm, onSendMessage = { openConversation(it) })
-                Screen.STATIONS -> StationsScreen(vm, onSendMessage = { openConversation(it) })
-                Screen.MESSAGES ->
-                    if (openThread != null) ThreadScreen(vm, openThread!!)
-                    else ConversationListScreen(vm, onOpenThread = { openThread = it })
-                Screen.CONTACTS -> ContactsScreen(vm, onMessage = { openConversation(it) })
-                Screen.STATUS -> StatusScreen(vm)
-                Screen.SETTINGS -> SettingsScreen(vm)
-                Screen.UTILITIES -> UtilitiesScreen()
-                Screen.WEATHER -> WeatherScreen(vm)
-                Screen.ISS -> IssScreen()
-                Screen.ADMIN -> AdminScreen()
-                Screen.INFO -> InfoScreen()
+            // Always keep MapScreen composed so the osmdroid AndroidView stays
+            // in the View hierarchy. Prevents OSM tile layer floating above
+            // Compose content after recomposition (AndroidView z-order bug).
+            MapScreen(vm, onSendMessage = { openConversation(it) }, active = screen == Screen.MAP)
+            if (screen != Screen.MAP) {
+                Box(Modifier.fillMaxSize().background(BgDeep)) {
+                    when (screen) {
+                        Screen.STATIONS -> StationsScreen(vm, onSendMessage = { openConversation(it) })
+                        Screen.MESSAGES ->
+                            if (openThread != null) ThreadScreen(vm, openThread!!)
+                            else ConversationListScreen(vm, onOpenThread = { openThread = it })
+                        Screen.CONTACTS -> ContactsScreen(vm, onMessage = { openConversation(it) })
+                        Screen.STATUS -> SettingsScreen(vm)
+                        Screen.SETTINGS -> SettingsScreen(vm)
+                        Screen.UTILITIES -> UtilitiesScreen()
+                        Screen.WEATHER -> WeatherScreen(vm)
+                        Screen.ISS -> IssScreen()
+                        Screen.ADMIN -> AdminScreen()
+                        Screen.INFO -> InfoScreen()
+                        else -> {}
+                    }
+                }
             }
         }
         if (isPrimaryTab) {
@@ -286,7 +293,7 @@ private fun AppRoot(initialThread: String?) {
                     label = { Text("Messages", maxLines = 1, fontSize = 10.sp) }
                 )
                 NavItem(screen == Screen.CONTACTS, { screen = Screen.CONTACTS }, Icons.Default.Contacts, "Contacts")
-                NavItem(screen == Screen.STATUS, { screen = Screen.STATUS }, Icons.Default.BarChart, "Status")
+                NavItem(screen == Screen.STATUS, { screen = Screen.STATUS }, Icons.Default.Settings, "Settings")
             }
         }
     }
@@ -319,15 +326,7 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
 }
 
 @Composable
-private fun TopBar(
-    conn: AprsWebSocket.ConnState,
-    stationCount: Int,
-    title: String,
-    showBack: Boolean,
-    onBack: () -> Unit,
-    onMenu: (Screen) -> Unit
-) {
-    var menuOpen by remember { mutableStateOf(false) }
+private fun SimpleBackBar(title: String, onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -335,72 +334,13 @@ private fun TopBar(
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (showBack) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Accent
-                )
-            }
-        } else {
-            Spacer(Modifier.size(8.dp))
+        IconButton(onClick = onBack) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = Accent
+            )
         }
         Text(title, color = TextHi, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-        Spacer(Modifier.weight(1f))
-        Text("$stationCount stn", color = TextDim, fontSize = 12.sp)
-        Spacer(Modifier.size(8.dp))
-        val dot = when (conn) {
-            AprsWebSocket.ConnState.AUTHED,
-            AprsWebSocket.ConnState.CONNECTED -> Ok
-            else -> Err
-        }
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(dot)
-        )
-        Box {
-            IconButton(onClick = { menuOpen = true }) {
-                Icon(
-                    Icons.Default.MoreVert,
-                    contentDescription = "More",
-                    tint = Accent
-                )
-            }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text("Settings") },
-                    leadingIcon = { Icon(Icons.Default.Settings, null) },
-                    onClick = { menuOpen = false; onMenu(Screen.SETTINGS) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Utilities") },
-                    leadingIcon = { Icon(Icons.Default.Build, null) },
-                    onClick = { menuOpen = false; onMenu(Screen.UTILITIES) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Weather") },
-                    leadingIcon = { Icon(Icons.Default.Cloud, null) },
-                    onClick = { menuOpen = false; onMenu(Screen.WEATHER) }
-                )
-                DropdownMenuItem(
-                    text = { Text("ISS Tracker") },
-                    leadingIcon = { Icon(Icons.Default.Satellite, null) },
-                    onClick = { menuOpen = false; onMenu(Screen.ISS) }
-                )
-                DropdownMenuItem(
-                    text = { Text("Admin") },
-                    leadingIcon = { Icon(Icons.Default.AdminPanelSettings, null) },
-                    onClick = { menuOpen = false; onMenu(Screen.ADMIN) }
-                )
-                DropdownMenuItem(
-                    text = { Text("About") },
-                    leadingIcon = { Icon(Icons.Default.Info, null) },
-                    onClick = { menuOpen = false; onMenu(Screen.INFO) }
-                )
-            }
-        }
     }
 }
