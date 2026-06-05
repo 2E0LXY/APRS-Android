@@ -76,8 +76,18 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                     val symTable = if (sym.isNotEmpty()) sym[0] else '/'
                     val symCode = if (sym.length >= 2) sym[1] else ' '
                     val type = PacketParser.classify(call, symTable, symCode)
-                    ))
-                }
+                    _stations.value = _stations.value + (call to Station(
+                        callsign = call,
+                        lat = json.optDouble("lat"),
+                        lon = json.optDouble("lon"),
+                        symbolTable = symTable,
+                        symbolCode = symCode,
+                        comment = json.optString("raw", ""),
+                        path = json.optString("path", ""),
+                        raw = json.optString("raw", ""),
+                        lastHeard = System.currentTimeMillis(),
+                        type = type
+                    ))                }
             }
         }
         viewModelScope.launch {
