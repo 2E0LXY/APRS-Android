@@ -155,16 +155,19 @@ object PacketParser {
         return v
     }
 
-    private fun classify(call: String, table: Char, code: Char): StationType {
+    internal fun classify(call: String, table: Char, code: Char): StationType {
         val up = call.uppercase()
         return when {
-            up.contains("MMDVM") -> StationType.MMDVM
-                code == '_' || (code == 'W' && table == '\\') -> StationType.WEATHER
-                code == '\'' || code == 'g' || up.startsWith("OGN") -> StationType.GLIDER
-                code == 's' || code == 'Y' || code == 'C' -> StationType.SHIP
-                up.contains("LORA") || up.contains("MESH") -> StationType.LORA
-                code == 'r' || code == '#' || code == '&' || code == 'I' -> StationType.OBJECT
-                else -> StationType.HAM
+            up.contains("MMDVM") || up.contains("PISTAR") ||
+                (table == '\\' && code == 'M') -> StationType.MMDVM
+            code == '_' || (code == 'W' && table == '\\') -> StationType.WEATHER
+            code == '\'' || code == 'g' || code == '^' ||
+                up.startsWith("OGN") -> StationType.GLIDER
+            code == 's' || code == 'Y' || code == 'C' ||
+                code == 'v' || code == 'b' -> StationType.SHIP
+            up.contains("LORA") || up.contains("MESH") -> StationType.LORA
+            code == 'r' || code == '#' || code == '&' || code == 'I' -> StationType.OBJECT
+            else -> StationType.HAM
         }
     }
 
