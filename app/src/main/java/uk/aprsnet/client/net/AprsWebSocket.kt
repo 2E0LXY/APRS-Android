@@ -114,7 +114,7 @@ class AprsWebSocket {
                             state.value = ConnState.AUTHED
                         }
                     }
-                    "rx" -> {
+                    "rx", "obj" -> {
                         o.optString("packet").takeIf { it.isNotEmpty() }?.let {
                             rawPackets.tryEmit(it)
                         }
