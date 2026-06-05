@@ -87,6 +87,11 @@ class BeaconManager(
         )
         if (ws.transmit(packet)) {
             _lastBeaconAt.value = System.currentTimeMillis()
+            // Send status packet if the user has set one
+            val statusText = settings.statusText
+            if (statusText.isNotEmpty()) {
+                ws.transmit(PacketBuilder.status(settings.fullCallsign, statusText))
+            }
         }
     }
 }

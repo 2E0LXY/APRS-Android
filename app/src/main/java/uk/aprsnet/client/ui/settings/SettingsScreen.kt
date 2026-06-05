@@ -266,6 +266,7 @@ private fun PositionCard(vm: AprsViewModel) {
     var comment by remember { mutableStateOf(s.beaconComment) }
     var symT by remember { mutableStateOf(s.symbolTable) }
     var symC by remember { mutableStateOf(s.symbolCode) }
+    var statusTxt by remember { mutableStateOf(s.statusText) }
     var saved by remember { mutableStateOf(false) }
 
     Card("Position / Beaconing") {
@@ -290,6 +291,16 @@ private fun PositionCard(vm: AprsViewModel) {
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
         )
         Text(
+            "Status text (sent as a separate APRS status packet alongside each beacon)",
+            color = TextDim, fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        OutlinedTextField(
+            value = statusTxt, onValueChange = { statusTxt = it },
+            label = { Text("Status (optional)") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+        Text(
             "APRS symbol (shown on aprs.fi and on other clients' maps)",
             color = TextDim, fontSize = 12.sp,
             modifier = Modifier.padding(top = 4.dp)
@@ -308,6 +319,7 @@ private fun PositionCard(vm: AprsViewModel) {
             onClick = {
                 s.positionMode = mode
                 s.beaconComment = comment
+                s.statusText = statusTxt
                 s.symbolTable = symT.ifEmpty { "/" }
                 s.symbolCode = symC.ifEmpty { ">" }
                 vm.applySettings()

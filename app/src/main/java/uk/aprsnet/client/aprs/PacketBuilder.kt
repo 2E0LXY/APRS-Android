@@ -14,6 +14,11 @@ object PacketBuilder {
         return "${from.uppercase()}>APRS,TCPIP*::$dest:$text{$msgId"
     }
 
+    /** An APRS status packet: CALL>APRS,TCPIP*:>STATUS TEXT */
+    fun status(from: String, text: String): String {
+        return "${from.uppercase()}>APRS,TCPIP*:>$text"
+    }
+
     /** An ACK:  CALL>APRS,TCPIP*::SENDER___:ackNN  */
     fun ack(from: String, sender: String, msgId: String): String {
         val dest = sender.uppercase().padEnd(9, ' ').substring(0, 9)

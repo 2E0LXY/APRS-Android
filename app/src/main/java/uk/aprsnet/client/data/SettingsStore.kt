@@ -37,7 +37,7 @@ class SettingsStore(context: Context) {
 
     /** Full callsign for transmission: '2E0LXY' (ssid=0) or '2E0LXY-9' (ssid>0). */
     val fullCallsign: String
-        get() = if (ssid == 0) callsign else "-$ssid"
+        get() = if (ssid == 0) callsign else "$callsign-$ssid"
 
     // -- Website member account --------------------------------------------
     // Set by the member-login flow; lets the app pull the user's passcode
@@ -65,6 +65,11 @@ class SettingsStore(context: Context) {
     var beaconComment: String
         get() = prefs.getString("beacon_comment", "APRS Net Android") ?: "APRS Net Android"
         set(v) = prefs.edit().putString("beacon_comment", v).apply()
+
+    /** APRS status text – transmitted as a separate >status packet alongside each beacon. */
+    var statusText: String
+        get() = prefs.getString("status_text", "") ?: ""
+        set(v) = prefs.edit().putString("status_text", v.trim()).apply()
 
     var symbolTable: String
         get() = prefs.getString("symbol_table", "/") ?: "/"
