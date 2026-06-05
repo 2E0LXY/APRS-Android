@@ -339,13 +339,13 @@ private fun FiltersCard(vm: AprsViewModel) {
             "stations list. Changes apply immediately.",
             color = TextDim, fontSize = 12.sp)
         Spacer(Modifier.size(6.dp))
-        FilterRow("Ham (APRS)", ham) { ham = it; s.showHam = it }
-        FilterRow("Weather (CWOP)", weather) { weather = it; s.showWeather = it }
-        FilterRow("Gliders (OGN)", glider) { glider = it; s.showGlider = it }
-        FilterRow("Ships / boats", ship) { ship = it; s.showShip = it }
-        FilterRow("LoRa", lora) { lora = it; s.showLora = it }
-        FilterRow("MMDVM (DMR / D-STAR / YSF)", mmdvm) { mmdvm = it; s.showMmdvm = it }
-        FilterRow("Other (objects, repeaters, digis, unclassified)", other) { other = it; s.showOther = it }
+        FilterRow("Ham (APRS)", ham) { ham = it; s.showHam = it; vm.tickFilters() }
+        FilterRow("Weather (CWOP)", weather) { weather = it; s.showWeather = it; vm.tickFilters() }
+        FilterRow("Gliders (OGN)", glider) { glider = it; s.showGlider = it; vm.tickFilters() }
+        FilterRow("Ships / boats", ship) { ship = it; s.showShip = it; vm.tickFilters() }
+        FilterRow("LoRa", lora) { lora = it; s.showLora = it; vm.tickFilters() }
+        FilterRow("MMDVM (DMR / D-STAR / YSF)", mmdvm) { mmdvm = it; s.showMmdvm = it; vm.tickFilters() }
+        FilterRow("Other (objects, repeaters, digis, unclassified)", other) { other = it; s.showOther = it; vm.tickFilters() }
     }
 }
 

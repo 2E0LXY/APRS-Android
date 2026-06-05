@@ -13,7 +13,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -242,7 +241,6 @@ private fun AppRoot(initialThread: String?) {
             .fillMaxSize()
             .background(bgBrush)
             .safeDrawingPadding()
-            .imePadding()
     ) {
         if (!isPrimaryTab || (screen == Screen.MESSAGES && openThread != null)) {
             SimpleBackBar(

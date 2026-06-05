@@ -62,6 +62,11 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     private val _status = MutableStateFlow<AprsApi.Status?>(null)
     val status: StateFlow<AprsApi.Status?> = _status
 
+    /** Bumped whenever a map filter is toggled so MapScreen re-applies filters immediately. */
+    private val _filterTick = MutableStateFlow(0)
+    val filterTick: StateFlow<Int> = _filterTick
+    fun tickFilters() { _filterTick.value++ }
+
     init {
         viewModelScope.launch {
             ws.positionData.collect { json ->

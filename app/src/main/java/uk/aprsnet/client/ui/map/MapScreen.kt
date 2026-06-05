@@ -79,6 +79,7 @@ fun MapScreen(
     var selectedCluster by remember { mutableStateOf<List<org.osmdroid.views.overlay.Marker>?>(null) }
     val myPos by vm.myPosition.collectAsState()
     val stations by vm.stations.collectAsState()
+    val filterTick by vm.filterTick.collectAsState()
 
     Box(modifier = modifier.fillMaxSize()) {
         AndroidView(
@@ -138,7 +139,7 @@ fun MapScreen(
     }
 
     // station markers - sampled, incremental, with click-to-detail
-    LaunchedEffect(mapState.value) {
+    LaunchedEffect(mapState.value, filterTick) {
         val map = mapState.value ?: return@LaunchedEffect
         vm.stations
             .sample(200)
