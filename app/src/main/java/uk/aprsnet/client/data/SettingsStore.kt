@@ -115,6 +115,26 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("filter_mmdvm", true)
         set(v) = prefs.edit().putBoolean("filter_mmdvm", v).apply()
 
+    // -- Per-member drop preferences (synced from server on member login) -----
+    // These mirror the web-map dashboard "Map Filter Preferences" section
+    // and the server-side admin Drop Filters. When set, the app filters out
+    // matching packets in MapScreen and StationsScreen.
+
+    /** Hide digital-voice gateway beacons: Pi-Star, MMDVM, APDPRS, DMRGateway, ircDDB. */
+    var dropPistar: Boolean
+        get() = prefs.getBoolean("drop_pistar", false)
+        set(v) = prefs.edit().putBoolean("drop_pistar", v).apply()
+
+    /** Hide D-STAR repeater forwarding traffic. */
+    var dropDstar: Boolean
+        get() = prefs.getBoolean("drop_dstar", false)
+        set(v) = prefs.edit().putBoolean("drop_dstar", v).apply()
+
+    /** Hide APDESK (UI-View desktop client) status beacons. */
+    var dropApdesk: Boolean
+        get() = prefs.getBoolean("drop_apdesk", false)
+        set(v) = prefs.edit().putBoolean("drop_apdesk", v).apply()
+
     // -- Notifications -----------------------------------------------------
     var notifyMessages: Boolean
         get() = prefs.getBoolean("notify_messages", true)

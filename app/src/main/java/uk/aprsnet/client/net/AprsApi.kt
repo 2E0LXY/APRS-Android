@@ -161,6 +161,49 @@ object AprsApi {
                 )
             }
         }
+
+    /**
+     * GET /api/member/preferences - returns the per-member map filter
+     * preferences JSON, or null on auth/network error. Empty object {}
+     * means no prefs set yet on the server side. Mirrors the web map's
+     * loadMemberPreferences() in index.html.
+     */
+    suspend fun memberPreferences(token: String): JSONObject? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val req = Request.Builder()
+                    .url("$BASE/api/member/preferences")
+                    .header("X-Member-Token", token)
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@runCatching null
+                    val raw = resp.body?.string() ?: return@runCatching null
+                    JSONObject(raw)
+                }
+            }.getOrNull()
+        }
+
+    /**
+     * PUT /api/member/preferences - replaces the server-side prefs blob
+     * with the supplied JSON. Returns true on 2xx, false otherwise.
+     * Called whenever the user toggles a drop filter in the app so that
+     * the same preference is visible the next time they sign in on the
+     * web map.
+     */
+    suspend fun memberPreferencesSet(token: String, prefs: JSONObject): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val body = prefs.toString()
+                    .toRequestBody("application/json".toMediaTypeOrNull())
+                val req = Request.Builder()
+                    .url("$BASE/api/member/preferences")
+                    .header("X-Member-Token", token)
+                    .put(body)
+                    .build()
+                client.newCall(req).execute().use { it.isSuccessful }
+            }.getOrDefault(false)
+        }
+
     /** Admin config (basic-auth). Returns the raw config JSON or null. */
     suspend fun adminConfig(user: String, pass: String): JSONObject? =
         adminGetObject(user, pass, "/api/config")

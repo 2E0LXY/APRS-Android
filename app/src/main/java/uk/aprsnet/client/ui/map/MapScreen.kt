@@ -570,6 +570,19 @@ private fun applyFilters(
     return current.values
         .filter { st -> st.callsign.uppercase() !in myCalls }
         .filter { st ->
+            // Per-member drop filters (synced from server on member login).
+            // Same pattern set as web map _memberDropsStation() and the
+            // server-side shouldRouteOutbound() admin Drop Filters.
+            val raw = st.raw.uppercase()
+            if (s.dropPistar && (
+                    raw.contains("PISTAR") || raw.contains("MMDVM") ||
+                    raw.contains("APDPRS") || raw.contains("APDG") ||
+                    raw.contains("APIRCD") || raw.contains("IRCDDB"))) return@filter false
+            if (s.dropDstar  && (raw.contains("D-STAR") || raw.contains("APDSTR"))) return@filter false
+            if (s.dropApdesk &&  raw.contains("APDESK")) return@filter false
+            true
+        }
+        .filter { st ->
             when (st.type) {
                 StationType.HAM     -> s.showHam
                 StationType.WEATHER -> s.showWeather

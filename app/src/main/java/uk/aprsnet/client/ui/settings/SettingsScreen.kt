@@ -359,6 +359,9 @@ private fun FiltersCard(vm: AprsViewModel) {
     var lora by remember { mutableStateOf(s.showLora) }
     var mmdvm by remember { mutableStateOf(s.showMmdvm) }
     var other by remember { mutableStateOf(s.showOther) }
+    var dropPi by remember { mutableStateOf(s.dropPistar) }
+    var dropD  by remember { mutableStateOf(s.dropDstar) }
+    var dropDk by remember { mutableStateOf(s.dropApdesk) }
 
     Card("Map Filters") {
         Text("Choose which station types appear on the map and in the " +
@@ -372,6 +375,20 @@ private fun FiltersCard(vm: AprsViewModel) {
         FilterRow("LoRa", lora) { lora = it; s.showLora = it; vm.tickFilters() }
         FilterRow("MMDVM (DMR / D-STAR / YSF)", mmdvm) { mmdvm = it; s.showMmdvm = it; vm.tickFilters() }
         FilterRow("Other (objects, repeaters, digis, unclassified)", other) { other = it; s.showOther = it; vm.tickFilters() }
+
+        Spacer(Modifier.size(12.dp))
+        Text("Hide categories (synced with member account on aprsnet.uk)",
+            color = TextDim, fontSize = 12.sp)
+        Text("Toggling any of these here also pushes the change to your " +
+            "web map account, and vice-versa on next login.",
+            color = TextDim, fontSize = 10.sp)
+        Spacer(Modifier.size(4.dp))
+        FilterRow("Drop digital-voice gateways (Pi-Star / MMDVM / DMRGateway / ircDDB)",
+            dropPi) { dropPi = it; s.dropPistar = it; vm.tickFilters(); vm.pushMemberPreferences() }
+        FilterRow("Drop D-STAR routes",
+            dropD)  { dropD  = it; s.dropDstar  = it; vm.tickFilters(); vm.pushMemberPreferences() }
+        FilterRow("Drop APDESK status beacons",
+            dropDk) { dropDk = it; s.dropApdesk = it; vm.tickFilters(); vm.pushMemberPreferences() }
     }
 }
 

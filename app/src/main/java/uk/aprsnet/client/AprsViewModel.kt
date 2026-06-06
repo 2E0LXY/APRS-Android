@@ -155,7 +155,35 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         settings.memberToken = r.token
         settings.memberName = r.name
         applySettings()
+        // Pull the server-stored map filter preferences and apply them.
+        // Silent on failure: local defaults remain in place if the call fails.
+        viewModelScope.launch {
+            val prefs = AprsApi.memberPreferences(r.token) ?: return@launch
+            settings.dropPistar = prefs.optBoolean("drop_pistar", settings.dropPistar)
+            settings.dropDstar  = prefs.optBoolean("drop_dstar",  settings.dropDstar)
+            settings.dropApdesk = prefs.optBoolean("drop_apdesk", settings.dropApdesk)
+            tickFilters()
+        }
         return null
+    }
+
+    /**
+     * Pushes the current drop-filter SettingsStore values back to the server
+     * so that the web map at aprsnet.uk sees the same preferences on next
+     * login. Called from SettingsScreen whenever the user toggles a drop
+     * filter. No-op if the user is not signed in to a member account.
+     */
+    fun pushMemberPreferences() {
+        val token = settings.memberToken
+        if (token.isNullOrEmpty()) return
+        viewModelScope.launch {
+            val prefs = org.json.JSONObject().apply {
+                put("drop_pistar",  settings.dropPistar)
+                put("drop_dstar",   settings.dropDstar)
+                put("drop_apdesk",  settings.dropApdesk)
+            }
+            AprsApi.memberPreferencesSet(token, prefs)
+        }
     }
 
     fun signOutMember() {
