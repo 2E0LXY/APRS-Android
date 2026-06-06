@@ -40,6 +40,7 @@ Native Kotlin/Compose Android client for the [Advanced APRS Go Server](https://g
 - Appearance (theme)
 - Position / Beaconing — mode, symbol, comment, status text
 - Station type filters (persisted, immediately applied)
+- **Account-synced drop filters** - hide Pi-Star / MMDVM / DMRGateway / ircDDB / D-STAR / APDESK; preferences sync automatically with your member account on `aprsnet.uk` so the same choices appear on the web map
 - Notifications / quiet hours
 - Status section — live WebSocket state, upstream connection, station count, last beacon, server info
 - **Help** — full in-app instructions for every feature
