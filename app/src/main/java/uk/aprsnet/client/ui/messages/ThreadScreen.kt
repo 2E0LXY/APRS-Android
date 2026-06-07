@@ -172,7 +172,7 @@ private fun MessageBubble(m: MessageEntity, bubbleColourId: Int, incomingBubbleC
                 .padding(horizontal = 14.dp, vertical = 9.dp)
         ) {
             Column {
-                Text(m.text, color = TextBase, fontSize = 14.sp)
+                Text(uk.aprsnet.client.util.Emoji.render(m.text), color = TextBase, fontSize = 14.sp)
                 Row(
                     modifier = Modifier.padding(top = 2.dp),
                     verticalAlignment = Alignment.CenterVertically

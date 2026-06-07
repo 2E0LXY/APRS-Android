@@ -215,7 +215,7 @@ private fun ConversationRow(
             )
             Spacer(Modifier.size(2.dp))
             Text(
-                preview,
+                uk.aprsnet.client.util.Emoji.render(preview),
                 color = if (unread > 0) TextBase else TextDim,
                 fontSize = 13.sp,
                 maxLines = 1
