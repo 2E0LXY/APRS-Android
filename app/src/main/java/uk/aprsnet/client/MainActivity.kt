@@ -197,6 +197,11 @@ private fun AppRoot(initialThread: String?) {
     var openThread by remember { mutableStateOf(initialThread) }
 
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    // One-shot post-install setup dialog: battery exemption + pin to home.
+    // Shows once on first launch; user can dismiss permanently.
+    var showSetup by remember {
+        mutableStateOf(!vm.settings.hasShownSetup)
+    }
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
@@ -204,6 +209,19 @@ private fun AppRoot(initialThread: String?) {
         // it will only beacon if location permission is held.
         (ctx as? MainActivity)?.startAprsService()
         vm.startBeaconingIfPermitted()
+        // After FINE_LOCATION is granted, Android 10+ requires a SEPARATE
+        // prompt for BACKGROUND_LOCATION (you cannot bundle them). Fire it
+        // now so beaconing continues with the screen off.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                != PackageManager.PERMISSION_GRANTED
+        ) {
+            (ctx as? MainActivity)?.requestPermissions(
+                arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 4242
+            )
+        }
     }
     LaunchedEffect(Unit) {
         val wanted = mutableListOf<String>()
@@ -295,6 +313,50 @@ private fun AppRoot(initialThread: String?) {
                 NavItem(screen == Screen.CONTACTS, { screen = Screen.CONTACTS }, Icons.Default.Contacts, "Contacts")
                 NavItem(screen == Screen.STATUS, { screen = Screen.STATUS }, Icons.Default.Settings, "Settings")
             }
+        }
+
+        // One-shot post-install setup dialog. Explains the two things Android
+        // hides behind extra friction: Doze battery exemption (so the FGS and
+        // WebSocket survive screen-off) and home-screen pin (Android 8+ no
+        // longer auto-pins apps on install).
+        if (showSetup) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {
+                    vm.settings.hasShownSetup = true
+                    showSetup = false
+                },
+                title = { Text("Background reliability") },
+                text = {
+                    Column {
+                        Text(
+                            "Android puts apps into Doze when the screen is off, " +
+                                "which drops the APRS connection and stops you receiving " +
+                                "messages. Two one-tap settings keep APRS Net running:",
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.size(10.dp))
+                        Text("\u2022  Battery exemption \u2013 keeps the connection alive when screen is off.", fontSize = 13.sp)
+                        Spacer(Modifier.size(4.dp))
+                        Text("\u2022  Add to home screen \u2013 puts an icon on your launcher.", fontSize = 13.sp)
+                    }
+                },
+                confirmButton = {
+                    Column(horizontalAlignment = Alignment.End) {
+                        TextButton(onClick = {
+                            (ctx as? MainActivity)?.let {
+                                uk.aprsnet.client.util.SetupHelper.requestBatteryUnrestricted(it)
+                            }
+                        }) { Text("Allow battery exemption") }
+                        TextButton(onClick = {
+                            uk.aprsnet.client.util.SetupHelper.requestPinHomeShortcut(ctx)
+                        }) { Text("Add to home screen") }
+                        TextButton(onClick = {
+                            vm.settings.hasShownSetup = true
+                            showSetup = false
+                        }) { Text("Done") }
+                    }
+                }
+            )
         }
     }
 }

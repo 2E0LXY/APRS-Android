@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Status bar / persistent foreground service notification icon. Android
+  requires this to be a monochrome white vector with a transparent background
+  on API 21+; coloured/multi-channel icons render as a plain white square
+  (or invisible on some Samsung builds). Simple antenna + radio-wave glyph
+  symbolising APRS RF.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFFFF">
+
+    <!-- Centre vertical antenna mast -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M11,7 L13,7 L13,21 L11,21 Z" />
+
+    <!-- Triangular antenna base (ground plane) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7,21 L17,21 L13,17 L11,17 Z" />
+
+    <!-- Inner radio wave arc -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M9.17,5.17 L7.76,3.76 C6.05,5.47 5,7.84 5,10.45 L7,10.45 C7,8.39 7.83,6.51 9.17,5.17 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M14.83,5.17 L16.24,3.76 C17.95,5.47 19,7.84 19,10.45 L17,10.45 C17,8.39 16.17,6.51 14.83,5.17 Z" />
+
+    <!-- Outer radio wave arc -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6.34,2.34 L4.93,0.93 C2.46,3.41 1,6.78 1,10.45 L3,10.45 C3,7.33 4.27,4.47 6.34,2.34 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17.66,2.34 L19.07,0.93 C21.54,3.41 23,6.78 23,10.45 L21,10.45 C21,7.33 19.73,4.47 17.66,2.34 Z" />
+
+    <!-- Centre dot at antenna tip (the "signal" source) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,4 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+</vector>

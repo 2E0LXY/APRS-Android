@@ -135,6 +135,15 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("drop_apdesk", false)
         set(v) = prefs.edit().putBoolean("drop_apdesk", v).apply()
 
+    /**
+     * One-shot flag: true once we have presented the post-install setup
+     * dialog (battery exemption + pin-to-home-screen). Suppresses the
+     * dialog from popping up again on every cold start.
+     */
+    var hasShownSetup: Boolean
+        get() = prefs.getBoolean("has_shown_setup", false)
+        set(v) = prefs.edit().putBoolean("has_shown_setup", v).apply()
+
     // -- Notifications -----------------------------------------------------
     var notifyMessages: Boolean
         get() = prefs.getBoolean("notify_messages", true)

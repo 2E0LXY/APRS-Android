@@ -47,8 +47,16 @@ object NotificationHelper {
         return NotificationCompat.Builder(ctx, CHANNEL_SERVICE)
             .setContentTitle("APRS Net")
             .setContentText("Connected - listening for messages")
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            // ic_notification is a monochrome white vector; required by Android
+            // for the status bar. Using ic_launcher_foreground (multi-colour
+            // adaptive icon) here used to render as an invisible / blank
+            // square on Android 8+ and especially Samsung One UI, which is
+            // why the persistent icon seemed to be missing.
+            .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
+            .setShowWhen(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setContentIntent(openAppIntent(ctx, null))
             .build()
     }
@@ -78,7 +86,7 @@ object NotificationHelper {
         ).addRemoteInput(replyInput).build()
 
         val builder = NotificationCompat.Builder(ctx, CHANNEL_MESSAGES)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setStyle(style)
             .setContentIntent(openAppIntent(ctx, msg.remoteCall))
             .setAutoCancel(true)
