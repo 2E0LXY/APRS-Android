@@ -80,7 +80,7 @@ fun ThreadScreen(
     }
 
     uk.aprsnet.client.ui.common.MessageBackground(
-        themeIndex = vm.settings.themeId,
+        backgroundId = vm.settings.messageBackgroundId,
         modifier = modifier.fillMaxSize()
     ) {
       Column(modifier = Modifier.fillMaxSize().imePadding()) {

@@ -78,7 +78,7 @@ fun ConversationListScreen(
     var pendingDelete by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
-      uk.aprsnet.client.ui.common.MessageBackground(themeIndex = vm.settings.themeId) {
+      uk.aprsnet.client.ui.common.MessageBackground(backgroundId = vm.settings.messageBackgroundId) {
         if (conversations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(

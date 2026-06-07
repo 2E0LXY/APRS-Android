@@ -34,6 +34,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -610,6 +611,36 @@ private fun AppearanceCard(vm: AprsViewModel) {
                     },
                     modifier = Modifier.weight(1f).padding(horizontal = 2.dp)
                 )
+            }
+        }
+
+        // -- Message section background picker -----------------------------
+        Spacer(Modifier.size(14.dp))
+        Text("Messages background", color = TextDim, fontSize = 12.sp)
+        Spacer(Modifier.size(6.dp))
+        var msgBgId by remember { mutableStateOf(s.messageBackgroundId) }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            uk.aprsnet.client.ui.common.MESSAGE_BG_NAMES.forEachIndexed { idx, label ->
+                Row(
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            msgBgId = idx
+                            s.messageBackgroundId = idx
+                        }
+                        .padding(vertical = 4.dp)
+                ) {
+                    RadioButton(
+                        selected = msgBgId == idx,
+                        onClick = {
+                            msgBgId = idx
+                            s.messageBackgroundId = idx
+                        }
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Text(label, color = TextBase, fontSize = 14.sp)
+                }
             }
         }
     }

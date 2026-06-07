@@ -11,145 +11,96 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
- * Atmospheric background painter for the messages section
- * (ConversationListScreen + ThreadScreen).
+ * Selectable painterly backgrounds for the Messages section.
  *
- * Why programmatic (Compose Brush) instead of embedded PNG assets:
- *  - Zero APK weight. A single 1080x2400 PNG of a textured background
- *    averages 400-600 KB; embedding 5+ (one per theme) means 2-3 MB of
- *    asset bloat for what is essentially gradient + noise.
- *  - Theme-aware. The radial gradient centre, the dominant colour, and
- *    the vignette darkness all derive from the user's chosen AppTheme,
- *    so the messages background harmonises with the rest of the UI
- *    automatically. Switching theme = instant repaint, no asset swap.
- *  - Resolution-independent. Looks crisp on any screen, no scaling.
- *  - No licensing question. Generated pixels, not stock photography.
+ * Seven preset styles, all generated programmatically (no PNG assets):
+ *   0  Dark Teal       - gradient + radial glow + grain + vignette
+ *   1  Bright Teal     - lighter canvas variant
+ *   2  Green Grid      - dark green with diagonal grid overlay
+ *   3  Green Spotlight - deep green with strong central radial spotlight
+ *   4  Red Flow        - black with curved red abstract shapes
+ *   5  Orange Stripes  - dark base with diagonal orange bands
+ *   6  Sunset Gradient - warm orange/amber sweep
  *
- * The visual recipe (dark teal aesthetic):
- *  1. Vertical linear gradient from a top mid-tone to a deeper bottom
- *     tone (the canvas).
- *  2. A large off-centre radial gradient hotspot (the "glow").
- *  3. A subtle pseudo-noise speckle of slightly lighter/darker dots
- *     (the "grain"). Seeded by canvas size so it stays stable across
- *     recompositions and does not flicker.
- *  4. Vignette: corners darkened with a radial gradient.
+ * Index 0 is the default. The user picks via Settings > Appearance.
  *
- * Apply at the root of a screen by wrapping content:
- *
- *     MessageBackground(themeIndex = vm.settings.themeId) {
- *         // your screen content here
- *     }
+ * Why programmatic: zero APK weight (PNG assets for 7 themed backgrounds
+ * would add 3-5 MB), resolution-independent, no licensing question.
  */
+
+/** Human-readable names for the Settings picker. Index matches the id. */
+val MESSAGE_BG_NAMES = listOf(
+    "Dark Teal",
+    "Bright Teal",
+    "Green Grid",
+    "Green Spotlight",
+    "Red Flow",
+    "Orange Stripes",
+    "Sunset Gradient"
+)
+
 @Composable
 fun MessageBackground(
-    themeIndex: Int,
+    backgroundId: Int,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    val palette = remember(themeIndex) { paletteFor(themeIndex) }
-
+    val style = remember(backgroundId) { backgroundId.coerceIn(0, 6) }
     Box(modifier = modifier.fillMaxSize()) {
-        // Layer 1: base gradient
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(palette.top, palette.bottom)
-                    )
-                )
-        )
-        // Layer 2: off-centre radial glow + grain + vignette in one Canvas pass
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawGlow(palette)
-            drawGrain(palette)
-            drawVignette(palette)
+            when (style) {
+                0 -> drawDarkTeal(this)
+                1 -> drawBrightTeal(this)
+                2 -> drawGreenGrid(this)
+                3 -> drawGreenSpotlight(this)
+                4 -> drawRedFlow(this)
+                5 -> drawOrangeStripes(this)
+                6 -> drawSunsetGradient(this)
+            }
         }
-        // Foreground content
         content()
     }
 }
 
-private data class BgPalette(
-    val top: Color,
-    val bottom: Color,
-    val glow: Color,
-    val grainBright: Color,
-    val grainDark: Color,
-    val vignette: Color
-)
+// ---------------------------------------------------------------------------
+// Helpers shared across styles
+// ---------------------------------------------------------------------------
 
-/**
- * Theme-keyed palettes. Index aligns with APP_THEMES order in
- * ui/theme/AppearancePalette.kt (Navy/Sunset/Forest/Aurora/Mono).
- * Default = dark teal (matches the user-supplied reference images
- * for the messages section).
- */
-private fun paletteFor(themeIndex: Int): BgPalette {
-    return when (themeIndex) {
-        // Sunset - orange/amber gradient bands
-        1 -> BgPalette(
-            top          = Color(0xFF2A0E04),
-            bottom       = Color(0xFF120602),
-            glow         = Color(0x55FF7A1A),
-            grainBright  = Color(0x14FFA040),
-            grainDark    = Color(0x14000000),
-            vignette     = Color(0x88000000)
-        )
-        // Forest - dark green radial
-        2 -> BgPalette(
-            top          = Color(0xFF062013),
-            bottom       = Color(0xFF010A06),
-            glow         = Color(0x553BB05E),
-            grainBright  = Color(0x144CC076),
-            grainDark    = Color(0x14000000),
-            vignette     = Color(0x88000000)
-        )
-        // Aurora - cool blue/teal
-        3 -> BgPalette(
-            top          = Color(0xFF062534),
-            bottom       = Color(0xFF010E18),
-            glow         = Color(0x554EBFD9),
-            grainBright  = Color(0x1466D7E8),
-            grainDark    = Color(0x14000000),
-            vignette     = Color(0x88000000)
-        )
-        // Mono - desaturated graphite
-        4 -> BgPalette(
-            top          = Color(0xFF18181B),
-            bottom       = Color(0xFF050507),
-            glow         = Color(0x55454555),
-            grainBright  = Color(0x14808090),
-            grainDark    = Color(0x14000000),
-            vignette     = Color(0x88000000)
-        )
-        // Default + Navy (index 0): DARK TEAL - matches the supplied
-        // reference images (shutterstock dark-teal-science aesthetic).
-        else -> BgPalette(
-            top          = Color(0xFF0A3B43),
-            bottom       = Color(0xFF03191E),
-            glow         = Color(0x553AB0B8),
-            grainBright  = Color(0x144EC0CC),
-            grainDark    = Color(0x14000000),
-            vignette     = Color(0x88000000)
-        )
-    }
+private fun DrawScope.fillVertical(top: Color, bottom: Color) {
+    drawRect(
+        brush = Brush.verticalGradient(listOf(top, bottom)),
+        topLeft = Offset.Zero,
+        size = size
+    )
 }
 
-private fun DrawScope.drawGlow(p: BgPalette) {
-    // Off-centre radial hotspot, roughly upper-right.
-    val cx = size.width * 0.62f
-    val cy = size.height * 0.28f
-    val r  = sqrt(size.width * size.width + size.height * size.height) * 0.55f
+private fun DrawScope.radialGlow(centerX: Float, centerY: Float, radius: Float, color: Color) {
     drawRect(
         brush = Brush.radialGradient(
-            colors = listOf(p.glow, Color.Transparent),
-            center = Offset(cx, cy),
+            colors = listOf(color, Color.Transparent),
+            center = Offset(size.width * centerX, size.height * centerY),
+            radius = radius
+        ),
+        topLeft = Offset.Zero,
+        size = size
+    )
+}
+
+private fun DrawScope.vignette(strength: Color) {
+    val r = sqrt(size.width * size.width + size.height * size.height) * 0.65f
+    drawRect(
+        brush = Brush.radialGradient(
+            colors = listOf(Color.Transparent, strength),
+            center = Offset(size.width * 0.5f, size.height * 0.5f),
             radius = r
         ),
         topLeft = Offset.Zero,
@@ -157,35 +108,200 @@ private fun DrawScope.drawGlow(p: BgPalette) {
     )
 }
 
-private fun DrawScope.drawGrain(p: BgPalette) {
-    // Stable per-frame: seed comes from the canvas dimensions, so the
-    // speckle does not jitter on recomposition. ~3500 specks scales
-    // well visually and is cheap (<2ms on any modern Pixel).
+private fun DrawScope.grain(count: Int, bright: Color, dark: Color) {
     val rng = Random(seed = (size.width.toInt() * 31 + size.height.toInt()))
-    val count = 3500
+    repeat(count) {
+        val x = rng.nextFloat() * size.width
+        val y = rng.nextFloat() * size.height
+        val c = if (rng.nextFloat() < 0.5f) bright else dark
+        drawCircle(color = c, radius = 0.6f + rng.nextFloat() * 0.9f, center = Offset(x, y))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Style 0 - Dark Teal (reference image 1)
+// ---------------------------------------------------------------------------
+
+private fun drawDarkTeal(scope: DrawScope) = with(scope) {
+    val diag = sqrt(size.width * size.width + size.height * size.height)
+    fillVertical(Color(0xFF0A3B43), Color(0xFF03191E))
+    radialGlow(0.62f, 0.28f, diag * 0.55f, Color(0x553AB0B8))
+    grain(3500, Color(0x144EC0CC), Color(0x14000000))
+    vignette(Color(0x88000000))
+}
+
+// ---------------------------------------------------------------------------
+// Style 1 - Bright Teal (reference image 2)
+// ---------------------------------------------------------------------------
+
+private fun drawBrightTeal(scope: DrawScope) = with(scope) {
+    val diag = sqrt(size.width * size.width + size.height * size.height)
+    fillVertical(Color(0xFF14555E), Color(0xFF062931))
+    radialGlow(0.35f, 0.30f, diag * 0.55f, Color(0x6655C9D4))
+    grain(2800, Color(0x1C66D7E2), Color(0x12000000))
+    vignette(Color(0x77000000))
+}
+
+// ---------------------------------------------------------------------------
+// Style 2 - Green Grid (reference image 3)
+// ---------------------------------------------------------------------------
+
+private fun drawGreenGrid(scope: DrawScope) = with(scope) {
+    val diag = sqrt(size.width * size.width + size.height * size.height)
+    fillVertical(Color(0xFF0A4A22), Color(0xFF02160A))
+    radialGlow(0.5f, 0.5f, diag * 0.5f, Color(0x4422A055))
+    // Diagonal grid - two crossing line sets at +/- 45 degrees
+    val spacing = 18f
+    val lineColor = Color(0x33000000)
+    val stroke = Stroke(width = 0.8f)
+    rotate(degrees = 45f, pivot = Offset(size.width * 0.5f, size.height * 0.5f)) {
+        var x = -size.height
+        while (x < size.width + size.height) {
+            drawLine(
+                color = lineColor,
+                start = Offset(x, -size.height),
+                end   = Offset(x, size.height * 2f),
+                strokeWidth = 0.8f
+            )
+            x += spacing
+        }
+    }
+    rotate(degrees = -45f, pivot = Offset(size.width * 0.5f, size.height * 0.5f)) {
+        var x = -size.height
+        while (x < size.width + size.height) {
+            drawLine(
+                color = lineColor,
+                start = Offset(x, -size.height),
+                end   = Offset(x, size.height * 2f),
+                strokeWidth = 0.8f
+            )
+            x += spacing
+        }
+    }
+    vignette(Color(0x99000000))
+}
+
+// ---------------------------------------------------------------------------
+// Style 3 - Green Spotlight (reference image 4)
+// ---------------------------------------------------------------------------
+
+private fun drawGreenSpotlight(scope: DrawScope) = with(scope) {
+    val diag = sqrt(size.width * size.width + size.height * size.height)
+    drawRect(color = Color.Black, topLeft = Offset.Zero, size = size)
+    radialGlow(0.45f, 0.35f, diag * 0.55f, Color(0xCC1E7A2A))
+    grain(2200, Color(0x1A2DCC4D), Color(0x14000000))
+    vignette(Color(0xCC000000))
+}
+
+// ---------------------------------------------------------------------------
+// Style 4 - Red Flow (reference image 5)
+// ---------------------------------------------------------------------------
+
+private fun drawRedFlow(scope: DrawScope) = with(scope) {
+    drawRect(color = Color(0xFF0A0203), topLeft = Offset.Zero, size = size)
     val w = size.width
     val h = size.height
-    repeat(count) {
-        val x = rng.nextFloat() * w
-        val y = rng.nextFloat() * h
-        val bright = rng.nextFloat() < 0.5f
-        val c = if (bright) p.grainBright else p.grainDark
-        val radius = 0.6f + rng.nextFloat() * 0.9f
-        drawCircle(color = c, radius = radius, center = Offset(x, y))
+    // Sweeping curved ribbon - lower-left to upper-right
+    val ribbon = Path().apply {
+        moveTo(0f, h * 0.75f)
+        cubicTo(w * 0.30f, h * 0.30f, w * 0.55f, h * 1.10f, w, h * 0.40f)
+        lineTo(w, h)
+        lineTo(0f, h)
+        close()
     }
+    drawPath(
+        path = ribbon,
+        brush = Brush.linearGradient(
+            colors = listOf(Color(0xFFB81020), Color(0xFF2A0408)),
+            start = Offset(0f, h),
+            end   = Offset(w, 0f)
+        )
+    )
+    // Secondary smaller curve highlight
+    val highlight = Path().apply {
+        moveTo(w * 0.10f, h * 0.40f)
+        cubicTo(w * 0.40f, h * 0.05f, w * 0.70f, h * 0.55f, w * 0.90f, h * 0.20f)
+        cubicTo(w * 0.70f, h * 0.30f, w * 0.40f, h * 0.20f, w * 0.10f, h * 0.40f)
+        close()
+    }
+    drawPath(
+        path = highlight,
+        brush = Brush.linearGradient(
+            colors = listOf(Color(0xCCFF2030), Color(0x66800010)),
+            start = Offset(0f, 0f),
+            end   = Offset(w, h)
+        )
+    )
+    vignette(Color(0xAA000000))
 }
 
-private fun DrawScope.drawVignette(p: BgPalette) {
-    val cx = size.width * 0.5f
-    val cy = size.height * 0.5f
-    val r  = sqrt(size.width * size.width + size.height * size.height) * 0.65f
+// ---------------------------------------------------------------------------
+// Style 5 - Orange Stripes (reference image 6)
+// ---------------------------------------------------------------------------
+
+private fun drawOrangeStripes(scope: DrawScope) = with(scope) {
+    drawRect(color = Color(0xFF0A0503), topLeft = Offset.Zero, size = size)
+    val w = size.width
+    val h = size.height
+    rotate(degrees = -28f, pivot = Offset(w * 0.5f, h * 0.5f)) {
+        val stripeWidth = h * 0.16f
+        val gap = h * 0.10f
+        var y = -h
+        var i = 0
+        while (y < h * 2f) {
+            val brightness = if (i % 2 == 0) 0xFFFF6A1A.toInt() else 0xFFCC4810.toInt()
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black,
+                        Color(brightness),
+                        Color.Black
+                    ),
+                    startY = y,
+                    endY = y + stripeWidth
+                ),
+                topLeft = Offset(-w, y),
+                size = Size(w * 3f, stripeWidth)
+            )
+            y += stripeWidth + gap
+            i++
+        }
+    }
+    grain(3000, Color(0x1AFFAA40), Color(0x15000000))
+    vignette(Color(0x99000000))
+}
+
+// ---------------------------------------------------------------------------
+// Style 6 - Sunset Gradient (reference image 7)
+// ---------------------------------------------------------------------------
+
+private fun drawSunsetGradient(scope: DrawScope) = with(scope) {
+    val w = size.width
+    val h = size.height
+    // Diagonal linear gradient: amber upper-left to deep red lower-right
     drawRect(
-        brush = Brush.radialGradient(
-            colors = listOf(Color.Transparent, p.vignette),
-            center = Offset(cx, cy),
-            radius = r
+        brush = Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFFFB020),
+                Color(0xFFFF6F10),
+                Color(0xFFA02208),
+                Color(0xFF400804)
+            ),
+            start = Offset(0f, 0f),
+            end   = Offset(w, h)
         ),
         topLeft = Offset.Zero,
         size = size
     )
+    // Soft horizontal sweep highlight
+    drawRect(
+        brush = Brush.verticalGradient(
+            colors = listOf(Color(0x55FFFFFF), Color.Transparent, Color(0x33000000)),
+            startY = 0f,
+            endY = h
+        ),
+        topLeft = Offset.Zero,
+        size = size
+    )
+    grain(2000, Color(0x1AFFFFFF), Color(0x14000000))
 }

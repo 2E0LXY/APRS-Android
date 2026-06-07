@@ -144,6 +144,15 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean("has_shown_setup", false)
         set(v) = prefs.edit().putBoolean("has_shown_setup", v).apply()
 
+    /**
+     * Which painterly background to use behind the Messages section.
+     * 0..6 - see MessageBackground.kt for the palette / pattern
+     * keyed to each index. Default 0 = Dark Teal.
+     */
+    var messageBackgroundId: Int
+        get() = prefs.getInt("message_background_id", 0)
+        set(v) = prefs.edit().putInt("message_background_id", v.coerceIn(0, 6)).apply()
+
     // -- Notifications -----------------------------------------------------
     var notifyMessages: Boolean
         get() = prefs.getBoolean("notify_messages", true)
