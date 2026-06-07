@@ -150,8 +150,23 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun loginMember(callsign: String, password: String): String? {
         val r = AprsApi.memberLogin(callsign, password)
         if (!r.ok) return r.error ?: "Login failed"
-        settings.callsign = r.callsign.ifEmpty { callsign }
-        if (r.passcode.isNotEmpty()) settings.passcode = r.passcode
+        val effectiveCall = r.callsign.ifEmpty { callsign }.trim().uppercase()
+        settings.callsign = effectiveCall
+        // Prefer the server-supplied passcode. Fall back to local calculation
+        // if the server returns empty/zero/'-1' (e.g. an older Member record
+        // saved before the Passcode field existed, or an account where the
+        // calc-on-register step didn't run). The passcode is a deterministic
+        // hash of the callsign with no secrets, so calculating it locally is
+        // safe and matches what the server would have computed.
+        val serverPass = r.passcode
+        val parsed = serverPass.trim().toIntOrNull()
+        val effectivePass = when {
+            parsed != null && parsed > 0 -> parsed.toString()
+            effectiveCall.isNotEmpty()   ->
+                uk.aprsnet.client.aprs.AprsUtils.passcode(effectiveCall).toString()
+            else                         -> serverPass
+        }
+        settings.passcode = effectivePass
         settings.memberToken = r.token
         settings.memberName = r.name
         applySettings()
