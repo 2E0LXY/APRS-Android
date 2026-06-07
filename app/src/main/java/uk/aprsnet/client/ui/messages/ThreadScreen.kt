@@ -79,7 +79,11 @@ fun ThreadScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
 
-    Column(modifier = modifier.fillMaxSize().imePadding()) {
+    uk.aprsnet.client.ui.common.MessageBackground(
+        themeIndex = vm.settings.themeId,
+        modifier = modifier.fillMaxSize()
+    ) {
+      Column(modifier = Modifier.fillMaxSize().imePadding()) {
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -123,6 +127,7 @@ fun ThreadScreen(
                 .align(Alignment.End)
                 .padding(end = 16.dp, bottom = 4.dp)
         )
+      }
     }
 }
 
