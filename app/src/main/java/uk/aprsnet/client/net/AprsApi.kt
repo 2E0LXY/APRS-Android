@@ -204,6 +204,48 @@ object AprsApi {
             }.getOrDefault(false)
         }
 
+
+    /**
+     * GET /api/members/callsigns - returns the set of registered member callsigns.
+     * Public endpoint; cached 5 minutes server-side. Used to badge ANUK members
+     * throughout the UI. Silently returns empty set on error.
+     */
+    suspend fun memberCallsigns(): Set<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val req = Request.Builder().url("$BASE/api/members/callsigns").build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@runCatching emptySet()
+                val raw = resp.body?.string() ?: return@runCatching emptySet()
+                val arr = org.json.JSONArray(raw)
+                val out = mutableSetOf<String>()
+                for (i in 0 until arr.length()) out += arr.getString(i).uppercase()
+                out
+            }
+        }.getOrDefault(emptySet())
+    }
+
+    /**
+     * POST /api/member/message/send - deliver a message directly to another
+     * APRS Net member via the server WebSocket, bypassing APRS-IS entirely.
+     * Used as a last-resort fallback when 3 APRS retries have all failed.
+     * Returns true on 2xx; false if the recipient is not a member or on error.
+     */
+    suspend fun memberMessageSend(token: String, to: String, text: String): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val body = JSONObject().apply {
+                    put("to",   to.trim().uppercase())
+                    put("text", text.trim())
+                }.toString().toRequestBody("application/json".toMediaTypeOrNull())
+                val req = Request.Builder()
+                    .url("$BASE/api/member/message/send")
+                    .header("X-Member-Token", token)
+                    .post(body)
+                    .build()
+                client.newCall(req).execute().use { it.isSuccessful }
+            }.getOrDefault(false)
+        }
+
     /** Admin config (basic-auth). Returns the raw config JSON or null. */
     suspend fun adminConfig(user: String, pass: String): JSONObject? =
         adminGetObject(user, pass, "/api/config")
