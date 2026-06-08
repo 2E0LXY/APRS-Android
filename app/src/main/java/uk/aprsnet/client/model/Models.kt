@@ -32,10 +32,11 @@ data class Message(
 
 /** Delivery state of an outgoing message - drives the chat bubble colour. */
 enum class MessageState {
-    SENDING,    // queued, not yet sent
-    SENT,       // transmitted to the server (single tick)
-    ACKED,      // ACK received - bubble turns GREEN (double tick)
-    FAILED      // no ACK after retries
+    SENDING,     // queued, not yet sent
+    SENT,        // transmitted to the server (single tick)
+    ACKED,       // ACK received - bubble turns GREEN (double tick)
+    FAILED,      // no ACK after 3 attempts
+    SERVER_SENT  // delivered via APRS Net server (direct, not APRS-IS)
 }
 
 /** A saved contact. */
