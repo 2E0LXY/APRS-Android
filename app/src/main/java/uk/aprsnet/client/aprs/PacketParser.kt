@@ -145,7 +145,7 @@ object PacketParser {
             speedKmh = speed,
             path = path,
             raw = raw,
-            type = classify(call, symTable, symCode)
+            type = classify(call, path, symTable, symCode)
         )
     }
 
@@ -155,9 +155,21 @@ object PacketParser {
         return v
     }
 
-    internal fun classify(call: String, table: Char, code: Char): StationType {
-        val up = call.uppercase()
+    internal fun classify(call: String, path: String, table: Char, code: Char): StationType {
+        val up     = call.uppercase()
+        val tocall = path.substringBefore(',').uppercase()
         return when {
+            // TOCALL-based LoRa detection (OE5BPA / CA2RXU firmware families).
+            // Takes precedence - a normal ham callsign with APLRG* TOCALL is
+            // unambiguously a LoRa iGate regardless of callsign content.
+            tocall.startsWith("APLR") || tocall.startsWith("APLG") ||
+                tocall.startsWith("APLT") || tocall.startsWith("APLO") ||
+                (tocall.startsWith("APL") && tocall.length >= 5) -> StationType.LORA
+            // TOCALL-based MMDVM/DMR detection
+            tocall.startsWith("APZDMR") || tocall.startsWith("APDG") -> StationType.MMDVM
+            // TOCALL-based OGN receiver detection
+            tocall.startsWith("APOG") -> StationType.GLIDER
+            // Fallback: callsign-string and symbol heuristics
             up.contains("MMDVM") || up.contains("PISTAR") ||
                 (table == '\\' && code == 'M') -> StationType.MMDVM
             code == '_' || (code == 'W' && table == '\\') -> StationType.WEATHER
