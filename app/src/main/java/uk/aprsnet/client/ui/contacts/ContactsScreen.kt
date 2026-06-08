@@ -45,6 +45,7 @@ fun ContactsScreen(
     modifier: Modifier = Modifier
 ) {
     val contacts by vm.contacts.collectAsState(initial = emptyList())
+    val members by vm.memberCallsigns.collectAsState()
     var showAdd by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -62,12 +63,18 @@ fun ContactsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                c.callsign,
-                                color = Accent,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    c.callsign,
+                                    color = Accent,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                                if (c.callsign.uppercase() in members) {
+                                    Spacer(Modifier.size(5.dp))
+                                    uk.aprsnet.client.ui.common.AnukBadge()
+                                }
+                            }
                             if (c.alias.isNotEmpty()) {
                                 Text(c.alias, color = TextDim, fontSize = 12.sp)
                             }
