@@ -153,6 +153,18 @@ class SettingsStore(context: Context) {
         get() = prefs.getInt("message_background_id", 0)
         set(v) = prefs.edit().putInt("message_background_id", v.coerceIn(0, 6)).apply()
 
+    // -- AIS (direct aisstream.io) -----------------------------------------
+    /**
+     * Optional aisstream.io API key for a direct AIS vessel feed.
+     * Empty string (default) disables the direct connection; AIS data then
+     * comes from the server relay only (if the server is configured).
+     * Free tier allows one WebSocket connection per key - do NOT use the
+     * same key as the server.
+     */
+    var aisApiKey: String
+        get() = prefs.getString("ais_api_key", "") ?: ""
+        set(v) = prefs.edit().putString("ais_api_key", v.trim()).apply()
+
     // -- Notifications -----------------------------------------------------
     var notifyMessages: Boolean
         get() = prefs.getBoolean("notify_messages", true)
