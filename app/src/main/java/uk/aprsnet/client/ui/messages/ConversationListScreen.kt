@@ -74,6 +74,7 @@ fun ConversationListScreen(
     modifier: Modifier = Modifier
 ) {
     val conversations by vm.conversations.collectAsState(initial = emptyList())
+    val members by vm.memberCallsigns.collectAsState()
     var showNew by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
 
@@ -126,6 +127,7 @@ fun ConversationListScreen(
                             preview = c.lastText.ifEmpty { "(no text)" },
                             timestamp = c.lastTimestamp,
                             unread = c.unread,
+                            isMember = c.remoteCall.uppercase() in members,
                             onClick = { onOpenThread(c.remoteCall) }
                         )
                     }
@@ -196,6 +198,7 @@ private fun ConversationRow(
     preview: String,
     timestamp: Long,
     unread: Int,
+    isMember: Boolean = false,
     onClick: () -> Unit
 ) {
     Row(
@@ -208,13 +211,19 @@ private fun ConversationRow(
         Avatar(callsign)
         Spacer(Modifier.size(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                callsign,
-                color = TextBase,
-                fontWeight = if (unread > 0) FontWeight.Bold else FontWeight.SemiBold,
-                fontSize = 15.sp,
-                maxLines = 1
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    callsign,
+                    color = TextBase,
+                    fontWeight = if (unread > 0) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                    maxLines = 1
+                )
+                if (isMember) {
+                    Spacer(Modifier.size(5.dp))
+                    uk.aprsnet.client.ui.common.AnukBadge()
+                }
+            }
             Spacer(Modifier.size(2.dp))
             Text(
                 uk.aprsnet.client.util.Emoji.render(preview),
