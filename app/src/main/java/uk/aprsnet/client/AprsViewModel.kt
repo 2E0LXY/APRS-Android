@@ -25,6 +25,7 @@ import uk.aprsnet.client.model.StationType
 import uk.aprsnet.client.net.AprsApi
 import uk.aprsnet.client.net.AisWebSocket
 import uk.aprsnet.client.net.AprsWebSocket
+import uk.aprsnet.client.net.AprsApi
 
 /**
  * Holds the live application state.
@@ -68,6 +69,10 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     private val _filterTick = MutableStateFlow(0)
     val filterTick: StateFlow<Int> = _filterTick
     fun tickFilters() { _filterTick.value++ }
+
+    /** Callsigns of registered APRS Net members - refreshed every 5 minutes. */
+    private val _memberCallsigns = MutableStateFlow<Set<String>>(emptySet())
+    val memberCallsigns: StateFlow<Set<String>> = _memberCallsigns
 
     init {
         viewModelScope.launch {
@@ -122,6 +127,13 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         }
         // Direct AIS connection if configured
         startAis()
+        // Poll member callsign list for ANUK badges (5-minute interval)
+        viewModelScope.launch {
+            while (true) {
+                runCatching { _memberCallsigns.value = AprsApi.memberCallsigns() }
+                delay(300_000)
+            }
+        }
     }
 
     /** Starts a direct aisstream.io connection if a key is configured. */
@@ -306,6 +318,16 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun deleteContact(contact: ContactEntity) {
         viewModelScope.launch { runCatching { contactDao.delete(contact) } }
+    }
+
+    /**
+     * Attempt to deliver a FAILED message directly via the APRS Net server.
+     * Requires the user to be signed in to a member account.
+     */
+    fun sendViaServer(rowId: Long) {
+        val token = settings.memberToken
+        if (token.isNullOrEmpty()) return
+        viewModelScope.launch { messages.sendViaServer(rowId, token) }
     }
 
     override fun onCleared() {
