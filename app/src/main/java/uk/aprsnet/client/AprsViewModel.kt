@@ -23,6 +23,7 @@ import uk.aprsnet.client.location.LocationProvider
 import uk.aprsnet.client.model.Station
 import uk.aprsnet.client.model.StationType
 import uk.aprsnet.client.net.AprsApi
+import uk.aprsnet.client.net.AisWebSocket
 import uk.aprsnet.client.net.AprsWebSocket
 
 /**
@@ -35,6 +36,7 @@ import uk.aprsnet.client.net.AprsWebSocket
 class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
     val ws = AprsWebSocket()
+    private var aisWs: AisWebSocket? = null
 
     private val db = AppDatabase.get(app)
     val messages = MessageRepository(db.messageDao(), ws)
@@ -118,6 +120,42 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                 delay(30_000)
             }
         }
+        // Direct AIS connection if configured
+        startAis()
+    }
+
+    /** Starts a direct aisstream.io connection if a key is configured. */
+    private fun startAis() {
+        val key = settings.aisApiKey
+        if (key.isBlank()) return
+        val aisSock = AisWebSocket(key)
+        aisWs = aisSock
+        viewModelScope.launch {
+            aisSock.ships.collect { ship ->
+                _stations.value = _stations.value + (ship.mmsi to
+                    uk.aprsnet.client.model.Station(
+                        callsign  = ship.mmsi,
+                        lat       = ship.lat,
+                        lon       = ship.lon,
+                        symbolTable = '/',
+                        symbolCode  = 's',
+                        comment   = ship.name,
+                        path      = "AIS",
+                        raw       = "${ship.mmsi}>AIS:!AIS${if (ship.name.isNotEmpty()) " ${ship.name}" else ""}",
+                        lastHeard = System.currentTimeMillis(),
+                        type      = StationType.SHIP
+                    )
+                )
+            }
+        }
+        aisSock.connect()
+    }
+
+    /** Stops any existing AIS connection and restarts if a key is present. */
+    fun restartAis() {
+        aisWs?.disconnect()
+        aisWs = null
+        startAis()
     }
 
     fun start(callsign: String, passcode: String) {
@@ -234,6 +272,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         if (settings.positionMode == "smart" && beacon.myPosition.value != null) {
             beacon.beaconNow()
         }
+        restartAis()
     }
 
     fun thread(call: String) = messages.thread(call)
@@ -272,6 +311,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() {
         beacon.stop()
         ws.disconnect()
+        aisWs?.disconnect()
         super.onCleared()
     }
 }
