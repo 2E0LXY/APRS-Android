@@ -22,10 +22,8 @@ import uk.aprsnet.client.location.Fix
 import uk.aprsnet.client.location.LocationProvider
 import uk.aprsnet.client.model.Station
 import uk.aprsnet.client.model.StationType
-import uk.aprsnet.client.net.AprsApi
 import uk.aprsnet.client.net.AisWebSocket
 import uk.aprsnet.client.net.AprsWebSocket
-import uk.aprsnet.client.net.AprsApi
 
 /**
  * Holds the live application state.
