@@ -122,6 +122,21 @@ class MessageRepository(
         return entity.copy(id = rowId)
     }
 
+    /**
+     * Attempt to deliver a FAILED message directly via the APRS Net server,
+     * bypassing APRS-IS. Only valid when the recipient is a registered member.
+     * Updates the message state to SERVER_SENT on success, leaves it FAILED
+     * on error so the caller can show a user-visible error.
+     */
+    suspend fun sendViaServer(rowId: Long, token: String): Boolean {
+        val m = dao.byId(rowId) ?: return false
+        val sent = uk.aprsnet.client.net.AprsApi.memberMessageSend(token, m.remoteCall, m.text)
+        if (sent) {
+            dao.update(m.copy(state = uk.aprsnet.client.model.MessageState.SERVER_SENT.name))
+        }
+        return sent
+    }
+
     /** Retry sweep - resend SENT messages that never got an ACK. */
     suspend fun retrySweep() {
         dao.pendingAcks().forEach { m ->
