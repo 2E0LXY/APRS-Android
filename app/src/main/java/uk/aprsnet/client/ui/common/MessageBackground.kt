@@ -3,6 +3,7 @@ package uk.aprsnet.client.ui.common
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -52,7 +53,7 @@ val MESSAGE_BG_NAMES = listOf(
 fun MessageBackground(
     backgroundId: Int,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
+    content: @Composable BoxScope.() -> Unit
 ) {
     val style = remember(backgroundId) { backgroundId.coerceIn(0, 6) }
     Box(modifier = modifier.fillMaxSize()) {
