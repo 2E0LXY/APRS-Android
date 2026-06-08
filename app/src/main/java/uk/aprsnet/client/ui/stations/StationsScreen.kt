@@ -47,6 +47,7 @@ fun StationsScreen(
 ) {
     val stations by vm.stations.collectAsState()
     val myPos by vm.myPosition.collectAsState()
+    val members by vm.memberCallsigns.collectAsState()
     var query by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<Station?>(null) }
 
@@ -103,8 +104,14 @@ fun StationsScreen(
                         )
                         Spacer(Modifier.size(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(st.callsign, color = Accent,
-                                fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(st.callsign, color = Accent,
+                                    fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                if (st.callsign.uppercase() in members) {
+                                    Spacer(Modifier.size(5.dp))
+                                    uk.aprsnet.client.ui.common.AnukBadge()
+                                }
+                            }
                             Text(
                                 ageText(st.lastHeard) +
                                     "  -  " + "%.3f, %.3f".format(st.lat, st.lon),
