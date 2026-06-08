@@ -75,7 +75,8 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                     val sym = json.optString("sym", "")
                     val symTable = if (sym.isNotEmpty()) sym[0] else '/'
                     val symCode = if (sym.length >= 2) sym[1] else ' '
-                    val type = PacketParser.classify(call, symTable, symCode)
+                    val path = json.optString("path", "")
+                    val type = PacketParser.classify(call, path, symTable, symCode)
                     _stations.value = _stations.value + (call to Station(
                         callsign = call,
                         lat = json.optDouble("lat"),
