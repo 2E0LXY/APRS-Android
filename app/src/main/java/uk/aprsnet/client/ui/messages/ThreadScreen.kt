@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -69,6 +71,7 @@ fun ThreadScreen(
     modifier: Modifier = Modifier
 ) {
     val messages by vm.thread(callsign).collectAsState(initial = emptyList())
+    val members by vm.memberCallsigns.collectAsState()
     var draft by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
@@ -91,7 +94,15 @@ fun ThreadScreen(
                 .fillMaxWidth(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(10.dp)
         ) {
-            items(messages) { m -> MessageBubble(m, vm.settings.bubbleColourId, vm.settings.incomingBubbleColourId) { vm.retry(m.id) } }
+            items(messages) { m -> MessageBubble(
+                m = m,
+                bubbleColourId = vm.settings.bubbleColourId,
+                incomingBubbleColourId = vm.settings.incomingBubbleColourId,
+                isMember = m.remoteCall.uppercase() in members,
+                isMemberSignedIn = vm.settings.memberSignedIn,
+                onRetry = { vm.retry(m.id) },
+                onSendViaServer = { vm.sendViaServer(m.id) }
+            ) }
         }
 
         // compose bar
@@ -132,7 +143,15 @@ fun ThreadScreen(
 }
 
 @Composable
-private fun MessageBubble(m: MessageEntity, bubbleColourId: Int, incomingBubbleColourId: Int, onRetry: () -> Unit) {
+private fun MessageBubble(
+    m: MessageEntity,
+    bubbleColourId: Int,
+    incomingBubbleColourId: Int,
+    isMember: Boolean = false,
+    isMemberSignedIn: Boolean = false,
+    onRetry: () -> Unit,
+    onSendViaServer: () -> Unit = {}
+) {
     val state = m.stateEnum()
     val align = if (m.outgoing) Alignment.End else Alignment.Start
 
@@ -148,6 +167,8 @@ private fun MessageBubble(m: MessageEntity, bubbleColourId: Int, incomingBubbleC
             listOf(AccentLime, BubbleAcked))
         m.outgoing && state == MessageState.FAILED -> Brush.verticalGradient(
             listOf(Err, Err))
+        m.outgoing && state == MessageState.SERVER_SENT -> Brush.verticalGradient(
+            listOf(Color(0xFFF59E0B), Color(0xFFD97706)))
         m.outgoing -> {
             val palette = uk.aprsnet.client.ui.theme.BUBBLE_PALETTES
                 .getOrNull(bubbleColourId)
@@ -193,21 +214,58 @@ private fun MessageBubble(m: MessageEntity, bubbleColourId: Int, incomingBubbleC
                 }
             }
         }
+        // Retry counter: shows attempt n/3 while waiting for ACK
+        if (m.outgoing && state == MessageState.SENT && m.retries > 0) {
+            Text(
+                retryCounterText(m.retries),
+                color = TextDim.copy(alpha = 0.7f),
+                fontSize = 10.sp,
+                modifier = Modifier.padding(top = 1.dp)
+            )
+        }
+        // Failed footer + server fallback
         if (m.outgoing && state == MessageState.FAILED) {
             Text("Failed - tap to retry", color = Err, fontSize = 10.sp)
+            // Offer server delivery if recipient is an APRS Net member
+            // and we are signed in to a member account
+            if (isMember && isMemberSignedIn) {
+                Button(
+                    onClick = onSendViaServer,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF0D9488).copy(alpha = 0.9f)
+                    ),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    Text("↗ Send via APRS Net", fontSize = 11.sp)
+                }
+            }
+        }
+        if (m.outgoing && state == MessageState.SERVER_SENT) {
+            Text("↗ Delivered via APRS Net",
+                color = Color(0xFFF59E0B), fontSize = 10.sp)
         }
     }
 }
 
+/** Returns Unicode superscript fraction for the retry attempt. */
+private fun retryCounterText(retries: Int): String {
+    // retries=1 -> attempt 2/3, retries=2 -> attempt 3/3
+    val attempt = (retries + 1).coerceIn(1, 3)
+    val sup = arrayOf("", "¹", "²", "³")
+    return "${sup[attempt]}⁄₃"   // e.g. ¹⁄₃ ²⁄₃ ³⁄₃
+}
+
 private fun tickFor(s: MessageState): String = when (s) {
-    MessageState.SENDING -> "clock"
-    MessageState.SENT    -> "sent"
-    MessageState.ACKED   -> "delivered"
-    MessageState.FAILED  -> "failed"
+    MessageState.SENDING     -> "clock"
+    MessageState.SENT        -> "sent"
+    MessageState.ACKED       -> "delivered"
+    MessageState.FAILED      -> "failed"
+    MessageState.SERVER_SENT -> "↗"
 }
 
 private fun tickColor(s: MessageState): Color = when (s) {
-    MessageState.ACKED  -> Color(0xFF86EFAC)
-    MessageState.FAILED -> Err
-    else -> TextDim
+    MessageState.ACKED       -> Color(0xFF86EFAC)
+    MessageState.FAILED      -> Err
+    MessageState.SERVER_SENT -> Color(0xFFF59E0B)
+    else                     -> TextDim
 }
