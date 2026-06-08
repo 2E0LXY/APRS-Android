@@ -95,6 +95,7 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
         AprsCredentialsCard(vm, refreshKey = credentialsRefresh)
         PositionCard(vm)
         FiltersCard(vm)
+        AisCard(vm)
         NotificationsCard(vm)
         StatusSection(vm)
         HelpCard()
@@ -453,6 +454,76 @@ private fun NotificationsCard(vm: AprsViewModel) {
                     "no sound/vibrate).",
                 color = TextDim, fontSize = 11.sp,
                 modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+    }
+}
+
+// ============================================================================
+// AIS / Ships (direct aisstream.io connection)
+// ============================================================================
+@Composable
+private fun AisCard(vm: AprsViewModel) {
+    val s   = vm.settings
+    val ctx = LocalContext.current
+    var key        by remember { mutableStateOf(s.aisApiKey) }
+    var keyVisible by remember { mutableStateOf(false) }
+    var saved      by remember { mutableStateOf(false) }
+
+    Card("AIS / Ships (direct)") {
+        Text(
+            "Optional: enter an aisstream.io API key to receive live maritime " +
+            "AIS vessel positions directly on this device. Leave blank to rely " +
+            "on the server relay (if configured). Free tier allows ONE " +
+            "WebSocket connection per key â€” do not use the same key as the server.",
+            color = TextDim, fontSize = 12.sp
+        )
+        Spacer(Modifier.size(8.dp))
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    ctx.startActivity(
+                        Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://aisstream.io"))
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Get a free API key at aisstream.io") }
+        Spacer(Modifier.size(8.dp))
+        OutlinedTextField(
+            value = key,
+            onValueChange = { key = it.trim(); saved = false },
+            label = { Text("aisstream.io API key (optional)") },
+            singleLine = true,
+            visualTransformation = if (keyVisible) VisualTransformation.None
+                                   else PasswordVisualTransformation(),
+            trailingIcon = {
+                TextButton(onClick = { keyVisible = !keyVisible }) {
+                    Text(if (keyVisible) "Hide" else "Show",
+                        fontSize = 11.sp, color = TextDim)
+                }
+            },
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        )
+        Button(
+            onClick = {
+                s.aisApiKey = key
+                vm.restartAis()
+                saved = true
+            },
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+        ) {
+            Text(if (key.isBlank()) "Save (no key - direct AIS disabled)"
+                 else "Save & connect")
+        }
+        if (saved) {
+            Text(
+                if (key.isBlank()) "Direct AIS disabled â€” relying on server relay."
+                else "Connecting to aisstream.io â€” vessels will appear shortly.",
+                color = if (key.isBlank()) TextDim else Ok,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 6.dp)
             )
         }
     }
