@@ -1,138 +1,126 @@
 # APRS Net – Android
 
-Native Kotlin/Compose Android client for the [Advanced APRS Go Server](https://github.com/2E0LXY/Advanced-APRS-Go-server), connecting to [www.aprsnet.uk](https://www.aprsnet.uk).
+Native Kotlin/Jetpack Compose Android client for [aprsnet.uk](https://www.aprsnet.uk).
 
 [![Release](https://img.shields.io/github/v/release/2E0LXY/APRS-Android)](https://github.com/2E0LXY/APRS-Android/releases)
 [![Licence: GPL v3](https://img.shields.io/badge/Licence-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 ---
 
+## Also available on
+
+| Platform | Repository | Download |
+|----------|------------|----------|
+| **iOS** | [2E0LXY/APRS-iOS](https://github.com/2E0LXY/APRS-iOS) | [Releases](https://github.com/2E0LXY/APRS-iOS/releases) |
+| **Windows / Linux desktop** | [2E0LXY/APRS-Client](https://github.com/2E0LXY/APRS-Client) | [EXE / DEB](https://github.com/2E0LXY/APRS-Client/releases) |
+| **Self-host the server** | [2E0LXY/Advanced-APRS-Go-server](https://github.com/2E0LXY/Advanced-APRS-Go-server) | [Install guide](https://github.com/2E0LXY/Advanced-APRS-Go-server#installation-debian-12) |
+
+---
+
 ## Features
 
 ### Map
-- Live osmdroid (OpenStreetMap) map with real-time APRS station markers
-- Marker clustering at low zoom levels
+- Live osmdroid map with real-time APRS station markers, clustering, trails
+- **TOCALL-based station classification** (v2.5.6+) — firmware-accurate detection:
+  - `APLRG*` / `APLRT*` / `APLG*` → LoRa iGate/tracker
+  - `APZDMR*` / `APDG*` → MMDVM/DMR gateway
+  - `APOG*` → OGN receiver
+  - Callsign-string heuristics retained as fallback
 - Tap any marker to open a station detail dialog (type, position, distance, bearing, path, comment)
-- Send message or add contact directly from the station detail dialog
-- **My Location FAB** (bottom-right) — centres and zooms map to your GPS fix; long-press to beacon immediately
-- **Filter FAB** (bottom-left) — quick-access overlay panel with type toggles and distance filter
-- Station type classification: HAM, Weather, Gliders, Ships, LoRa, MMDVM/Pistar, Objects, Other
-- **Live AIS ships** — server subscribes to aisstream.io and relays marine vessel positions in real time
-- Distance filter: All / 50 km / 100 km / 250 km / 500 km (haversine from your GPS fix)
-- APRS objects and items correctly plotted alongside regular position stations
+- **My Location FAB** — centres map to GPS fix; long-press to beacon immediately
+- **Filter FAB** — type toggles and distance filter (50 / 100 / 250 / 500 km)
+- Station types: Ham, Weather (CWOP), Ships/AIS, Gliders (OGN), LoRa, MMDVM/DMR, Objects
+
+### AIS Ships
+- **Server relay** — server subscribes to aisstream.io and relays live vessel positions
+- **Direct connection** (v2.5.7+) — optional `aisstream.io` API key in Settings for an independent direct feed; configure separately from the server key to avoid free-tier conflicts
 
 ### Messaging
 - SMS-style conversation threads per callsign
-- Outgoing bubbles turn green when ACKed by the recipient
-- Incoming messages auto-ACKed per APRS spec
-- Failed messages retry automatically
-- Keyboard correctly pushes message input above it (IME-aware layout)
+- Outgoing bubbles turn green on ACK; incoming messages auto-ACKed per spec
+- Atmospheric message backgrounds — 7 selectable styles (v2.5.4+)
+- Emoji rendering in message bodies (v2.5.2+)
 
 ### Beaconing
-- Smart beaconing algorithm — beacons frequently when moving, slows when stationary
-- Manual beacon via long-press on the My Location FAB
-- Configurable APRS symbol, comment, and status text
-- Status text sent as a separate APRS `>` status packet alongside each position beacon
-- Foreground service keeps beaconing active when the app is in the background
+- Smart beaconing — frequent when moving, slow when stationary
+- Configurable symbol, comment, and APRS status text
+- Foreground service keeps beaconing active in the background (v2.5.3+)
 
 ### Settings
-- Member account login (callsign + APRS-IS passcode)
-- Appearance (theme)
-- Position / Beaconing — mode, symbol, comment, status text
-- Station type filters (persisted, immediately applied)
-- **Account-synced drop filters** - hide Pi-Star / MMDVM / DMRGateway / ircDDB / D-STAR / APDESK; preferences sync automatically with your member account on `aprsnet.uk` so the same choices appear on the web map
-- Notifications / quiet hours
-- Status section — live WebSocket state, upstream connection, station count, last beacon, server info
-- **Help** — full in-app instructions for every feature
-- **Close App** — terminates the app and all background services cleanly
+- Callsign, APRS-IS passcode, SSID
+- Member account login — auto-fills passcode and syncs map filter preferences
+- **Account-synced drop filters** — hide Pi-Star/MMDVM/D-STAR/APDESK; preferences sync with your aprsnet.uk member account so the same choices appear on the web map and iOS app
+- Position mode, beacon comment, symbol
+- Station type filters (all 7 types, persisted and immediately applied)
+- Direct aisstream.io API key (optional, separate from server key)
+- Notifications and quiet hours
 
-### Stations
-- Searchable list of every heard station, sorted by distance from you
-
-### Contacts
-- Saved callsigns with aliases
-
-### Sub-screens (accessible from Settings back-navigation)
-- Weather — UK Met Office severe weather warnings and CWOP weather stations
-- ISS Tracker — live International Space Station position
-- Utilities — APRS-IS passcode calculator and Maidenhead locator converter
-- Admin — server admin panel (requires admin credentials)
+### Sub-screens
+- Weather (UK Met Office severe weather warnings + CWOP stations)
+- ISS Tracker (live position)
+- Utilities (passcode calculator, Maidenhead converter)
+- Admin (server admin panel)
 
 ---
 
 ## Quick Start
 
-1. Install the APK and open the app
-2. Tap **Settings** (gear icon in bottom nav)
-3. Enter your callsign and APRS-IS passcode under **Credentials**
-4. Set your beaconing mode to **Smart** under **Position / Beaconing**
-5. Tap **Save** — the map will populate with live stations within seconds
+1. Install the APK — download from [Releases](https://github.com/2E0LXY/APRS-Android/releases)
+2. Open the app → **Settings** (gear icon)
+3. Enter callsign and APRS-IS passcode under **Credentials**
+4. Set beaconing mode to **Smart** under **Position / Beaconing**
+5. Tap **Save** — live stations appear within seconds
 
-Receiving works without credentials. Sending messages and beaconing require a valid callsign/passcode.
-
----
-
-## Map Filter Panel
-
-Tap the funnel icon (bottom-left of the map) to open the quick-filter panel:
-
-| Toggle | Hides / shows |
-|---|---|
-| HAM | Standard ham/APRS stations |
-| WX | CWOP weather stations |
-| Ships | AIS maritime vessels |
-| Gliders | OGN glider/aircraft trackers |
-| LoRa | LoRa-APRS digipeaters and trackers |
-| MMDVM | MMDVM / Pistar hotspots |
-| Other | Objects, repeaters, digis, unclassified |
-
-Distance chips (All / 50 km / 100 km / 250 km / 500 km) filter stations beyond the selected radius from your GPS fix.
+Receiving works without credentials. Sending and beaconing require a valid callsign/passcode.
 
 ---
 
 ## Building
 
-Requires JDK 17 and the Android SDK.
+Requires JDK 17 and Android SDK.
 
 ```bash
 git clone https://github.com/2E0LXY/APRS-Android
 cd APRS-Android
-gradle wrapper --gradle-version 8.7
 ./gradlew assembleDebug
 ```
 
-For a signed release AAB (Play Store):
+Signed release AAB (Play Store):
 
 ```bash
 ./gradlew bundleRelease \
-  -Pandroid.injected.signing.store.file=/path/to/aprs-net-release.jks \
+  -Pandroid.injected.signing.store.file=/path/to/keystore.jks \
   -Pandroid.injected.signing.store.password=<storepass> \
   -Pandroid.injected.signing.key.alias=aprsnet \
   -Pandroid.injected.signing.key.password=<keypass>
 ```
 
-GitHub Actions builds and publishes both `APRS-Net-Android.aab` (Play Store) and `APRS-Net-Android.apk` (sideload) on every `v*` tag.
+GitHub Actions publishes `APRS-Net-Android.aab` and `APRS-Net-Android.apk` on every `v*` tag.
 
 ---
 
-## Changelog highlights
+## Changelog
 
-| Version | Key changes |
-|---|---|
-| v2.4.6 | Fix ships/objects invisible (APRS object DTI not handled in WebSocket) |
-| v2.4.5 | Map filter overlay FAB, distance filter, ship detection improvements, instant filter apply |
-| v2.4.4 | Fix station type classification — dual JSON/raw path conflict stamping everything as HAM |
-| v2.4.3 | Fix fullCallsign SSID bug (was sending `-9` instead of `2E0LXY-9`); APRS status packets |
-| v2.4.2 | Fix IME keyboard covering messages; filter switches now apply immediately |
-| v2.4.1 | Fix IME `adjustResize` for message input |
-| v2.4.0 | Settings tab replaces Status; map overlay fix (AndroidView z-order); SimpleBackBar |
-| v2.3.x | Kotlin/Compose rewrite — settings, station detail dialogs, conversation list, dark glass theme |
-
----
-
-## Server
-
-Fixed to [www.aprsnet.uk](https://www.aprsnet.uk). See [Advanced-APRS-Go-server](https://github.com/2E0LXY/Advanced-APRS-Go-server) for the server source.
+| Version | Changes |
+|---------|---------|
+| v2.5.8 | Fix missing AprsApi import after refactor |
+| v2.5.7 | Direct aisstream.io AIS — `AisWebSocket`, `aisApiKey` setting, AIS card in Settings |
+| v2.5.6 | TOCALL-based LoRa/MMDVM/OGN classification in `PacketParser.classify()` |
+| v2.5.5 | Fix AlertDialog and BoxScope imports in MainActivity |
+| v2.5.4 | Atmospheric message section backgrounds |
+| v2.5.3 | Background reliability + monochrome status bar icon |
+| v2.5.2 | Emoji rendering in messages (display-time only) |
+| v2.5.1 | Robust passcode auto-fill on member login |
+| v2.5.0 | Sync map filter preferences with server member account |
+| v2.4.9 | Filter panel diagnostic overlay |
+| v2.4.8 | Pi-Star ACK drop fix; SSID source rejection fix |
+| v2.4.6 | Fix ships/objects invisible (APRS object DTI not handled) |
+| v2.4.5 | Map filter overlay FAB, distance filter, ship detection improvements |
+| v2.4.4 | Fix station type classification — dual JSON/raw path conflict |
+| v2.4.3 | Fix fullCallsign SSID bug; APRS status packets |
+| v2.4.2 | Fix IME keyboard covering messages; filter switches apply immediately |
+| v2.4.0 | Settings tab replaces Status tab; map overlay z-order fix |
+| v2.3.x | Kotlin/Compose rewrite — dark glass theme, conversation list, dialogs |
 
 ---
 
