@@ -353,6 +353,67 @@ object AprsApi {
         return runCatching { JSONObject(body) }.getOrNull()
     }
 
+    // ── Geo-fence alert rules ─────────────────────────────────────────────────────
+
+    suspend fun getAlertRules(token: String): List<uk.aprsnet.client.model.AlertRule> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val req = Request.Builder().url("$BASE/api/member/alert-rules")
+                    .header("X-Member-Token", token).build()
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@runCatching emptyList()
+                    val arr = org.json.JSONArray(resp.body?.string() ?: "[]")
+                    (0 until arr.length()).map { i ->
+                        val o = arr.getJSONObject(i)
+                        uk.aprsnet.client.model.AlertRule(
+                            id            = o.optLong("id"),
+                            type          = o.optString("type", "geofence_enter"),
+                            watchCallsign = o.optString("watch_callsign", "*"),
+                            lat           = o.optDouble("lat"),
+                            lon           = o.optDouble("lon"),
+                            radiusMi      = o.optDouble("radius_mi", 10.0),
+                            name          = o.optString("name")
+                        )
+                    }
+                }
+            }.getOrDefault(emptyList())
+        }
+
+    suspend fun createAlertRule(
+        token: String,
+        rule:  uk.aprsnet.client.model.AlertRule
+    ): uk.aprsnet.client.model.AlertRule? = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = okhttp3.RequestBody.create(
+                okhttp3.MediaType.parse("application/json"),
+                org.json.JSONObject().apply {
+                    put("type",           rule.type)
+                    put("watch_callsign", rule.watchCallsign)
+                    put("lat",            rule.lat)
+                    put("lon",            rule.lon)
+                    put("radius_mi",      rule.radiusMi)
+                    put("name",           rule.name)
+                }.toString()
+            )
+            val req = Request.Builder().url("$BASE/api/member/alert-rules")
+                .post(body).header("X-Member-Token", token).build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@runCatching null
+                val o = JSONObject(resp.body?.string() ?: "{}")
+                rule.copy(id = o.optLong("id"))
+            }
+        }.getOrNull()
+    }
+
+    suspend fun deleteAlertRule(token: String, ruleId: Long): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val req = Request.Builder().url("$BASE/api/member/alert-rules/$ruleId")
+                    .delete().header("X-Member-Token", token).build()
+                client.newCall(req).execute().use { it.code() == 204 }
+            }.getOrDefault(false)
+        }
+
     private fun getRaw(path: String): String? {
         val req = Request.Builder().url(BASE + path).build()
         client.newCall(req).execute().use { resp ->
