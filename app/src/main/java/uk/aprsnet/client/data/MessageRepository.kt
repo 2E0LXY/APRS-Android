@@ -123,6 +123,35 @@ class MessageRepository(
     }
 
     /**
+     * Send a new message directly via the APRS Net server, bypassing APRS-IS
+     * entirely. Used when the user explicitly chooses "Direct" delivery at
+     * compose time. Recipient must be a registered member.
+     * State starts SENDING -> SERVER_SENT on success, FAILED on error.
+     */
+    suspend fun sendDirectMessage(to: String, text: String, token: String): Long {
+        val dest = to.trim().uppercase()
+        val rowId = dao.insert(
+            MessageEntity(
+                remoteCall = dest,
+                text       = text,
+                outgoing   = true,
+                timestamp  = System.currentTimeMillis(),
+                aprsMsgId  = null,   // direct delivery — no APRS message id
+                state      = MessageState.SENDING.name,
+                read       = true
+            )
+        )
+        val sent = uk.aprsnet.client.net.AprsApi.memberMessageSend(token, dest, text)
+        dao.byId(rowId)?.let {
+            dao.update(it.copy(
+                state = if (sent) MessageState.SERVER_SENT.name
+                        else     MessageState.FAILED.name
+            ))
+        }
+        return rowId
+    }
+
+    /**
      * Attempt to deliver a FAILED message directly via the APRS Net server,
      * bypassing APRS-IS. Only valid when the recipient is a registered member.
      * Updates the message state to SERVER_SENT on success, leaves it FAILED
