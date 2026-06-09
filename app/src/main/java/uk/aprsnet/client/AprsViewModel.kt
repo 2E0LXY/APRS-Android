@@ -319,6 +319,35 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { runCatching { contactDao.delete(contact) } }
     }
 
+    // ── Geo-fence alert rules ──────────────────────────────────────────────────
+
+    fun loadAlertRules() {
+        val token = settings.memberToken; if (token.isNullOrEmpty()) return
+        viewModelScope.launch {
+            runCatching { _alertRules.value = AprsApi.getAlertRules(token) }
+        }
+    }
+
+    fun createAlertRule(rule: uk.aprsnet.client.model.AlertRule, onDone: () -> Unit) {
+        val token = settings.memberToken; if (token.isNullOrEmpty()) { onDone(); return }
+        viewModelScope.launch {
+            runCatching {
+                val created = AprsApi.createAlertRule(token, rule)
+                if (created != null) _alertRules.value = _alertRules.value + created
+            }
+            onDone()
+        }
+    }
+
+    fun deleteAlertRule(ruleId: Long) {
+        val token = settings.memberToken; if (token.isNullOrEmpty()) return
+        viewModelScope.launch {
+            runCatching { if (AprsApi.deleteAlertRule(token, ruleId))
+                _alertRules.value = _alertRules.value.filter { it.id != ruleId }
+            }
+        }
+    }
+
     /**
      * Attempt to deliver a FAILED message directly via the APRS Net server.
      * Requires the user to be signed in to a member account.
