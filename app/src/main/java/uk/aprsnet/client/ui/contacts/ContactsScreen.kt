@@ -49,6 +49,9 @@ fun ContactsScreen(
     var showAdd by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
+        uk.aprsnet.client.ui.common.MessageBackground(
+            backgroundId = vm.settings.messageBackgroundId
+        ) {
         if (contacts.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No contacts yet", color = TextDim)
@@ -98,6 +101,7 @@ fun ContactsScreen(
             }
         }
 
+        } // MessageBackground
         FloatingActionButton(
             onClick = { showAdd = true },
             modifier = Modifier
