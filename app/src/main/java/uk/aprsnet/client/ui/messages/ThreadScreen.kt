@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -73,6 +74,11 @@ fun ThreadScreen(
     val messages by vm.thread(callsign).collectAsState(initial = emptyList())
     val members by vm.memberCallsigns.collectAsState()
     var draft by remember { mutableStateOf("") }
+    val recipientIsMember = callsign.uppercase() in members
+    val userIsSignedIn    = vm.settings.memberSignedIn
+    val canUseDirect      = recipientIsMember && userIsSignedIn
+    // Remembered per callsign: resets to APRS when opening a different thread.
+    var useDirect by remember(callsign) { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     // mark incoming messages read on open
@@ -106,6 +112,32 @@ fun ThreadScreen(
         }
 
         // compose bar
+        // Route selector — only visible when both parties are members
+        if (canUseDirect) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Route:", color = TextDim, fontSize = 11.sp)
+                DeliveryChip(
+                    label = "📡 APRS",
+                    selected = !useDirect,
+                    onClick  = { useDirect = false }
+                )
+                DeliveryChip(
+                    label = "↗ Direct",
+                    selected = useDirect,
+                    onClick  = { useDirect = true },
+                    activeColour = Color(0xFF0D9488)
+                )
+                if (useDirect) {
+                    Text("no RF", color = TextDim, fontSize = 10.sp)
+                }
+            }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -124,10 +156,20 @@ fun ThreadScreen(
             IconButton(
                 onClick = {
                     val t = draft.trim()
-                    if (t.isNotEmpty()) { vm.send(callsign, t); draft = "" }
+                    if (t.isNotEmpty()) {
+                        if (useDirect) vm.sendDirect(callsign, t)
+                        else           vm.send(callsign, t)
+                        draft = ""
+                    }
                 }
             ) {
-                Icon(Icons.Default.Send, contentDescription = "Send", tint = Accent)
+                Icon(
+                    Icons.Default.Send,
+                    contentDescription = "Send",
+                    // Tint amber when in direct mode so the user has
+                    // a persistent visual reminder of the active route.
+                    tint = if (useDirect) Color(0xFF0D9488) else Accent
+                )
             }
         }
         Text(
@@ -139,6 +181,33 @@ fun ThreadScreen(
                 .padding(end = 16.dp, bottom = 4.dp)
         )
       }
+    }
+}
+
+@Composable
+private fun DeliveryChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    activeColour: Color = AccentBlue
+) {
+    val bg     = if (selected) activeColour.copy(alpha = 0.18f) else Color.Transparent
+    val border = if (selected) activeColour else TextDim.copy(alpha = 0.35f)
+    val fg     = if (selected) activeColour else TextDim
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(bg)
+            .border(1.dp, border, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(
+            label,
+            color = fg,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
 
