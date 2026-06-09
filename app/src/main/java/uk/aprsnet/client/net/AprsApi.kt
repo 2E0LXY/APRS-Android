@@ -385,7 +385,7 @@ object AprsApi {
     ): uk.aprsnet.client.model.AlertRule? = withContext(Dispatchers.IO) {
         runCatching {
             val body = okhttp3.RequestBody.create(
-                okhttp3.MediaType.parse("application/json"),
+                "application/json".toMediaTypeOrNull(),
                 org.json.JSONObject().apply {
                     put("type",           rule.type)
                     put("watch_callsign", rule.watchCallsign)
@@ -410,7 +410,7 @@ object AprsApi {
             runCatching {
                 val req = Request.Builder().url("$BASE/api/member/alert-rules/$ruleId")
                     .delete().header("X-Member-Token", token).build()
-                client.newCall(req).execute().use { it.code() == 204 }
+                client.newCall(req).execute().use { it.code == 204 }
             }.getOrDefault(false)
         }
 
