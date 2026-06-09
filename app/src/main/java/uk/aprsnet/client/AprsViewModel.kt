@@ -323,6 +323,20 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
      * Attempt to deliver a FAILED message directly via the APRS Net server.
      * Requires the user to be signed in to a member account.
      */
+    /**
+     * Send a new message directly via the APRS Net server, bypassing APRS-IS.
+     * Only callable when the user is signed in to a member account and the
+     * recipient is also a registered member. Creates the message row with
+     * SERVER_SENT state on success so the bubble renders amber immediately.
+     */
+    fun sendDirect(to: String, text: String) {
+        val token = settings.memberToken
+        if (token.isNullOrEmpty()) return
+        viewModelScope.launch {
+            runCatching { messages.sendDirectMessage(to, text, token) }
+        }
+    }
+
     fun sendViaServer(rowId: Long) {
         val token = settings.memberToken
         if (token.isNullOrEmpty()) return
