@@ -319,6 +319,9 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { runCatching { contactDao.delete(contact) } }
     }
 
+    private val _alertRules = MutableStateFlow<List<uk.aprsnet.client.model.AlertRule>>(emptyList())
+    val alertRules = _alertRules.asStateFlow()
+
     // ── Geo-fence alert rules ──────────────────────────────────────────────────
 
     fun loadAlertRules() {
