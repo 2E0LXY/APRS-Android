@@ -73,7 +73,11 @@ fun StationsScreen(
             }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    uk.aprsnet.client.ui.common.MessageBackground(
+        backgroundId = vm.settings.messageBackgroundId,
+        modifier = modifier
+    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
@@ -127,6 +131,7 @@ fun StationsScreen(
             }
         }
     }
+    } // MessageBackground
 
     selected?.let { st ->
         StationDetailDialog(
