@@ -42,6 +42,7 @@ Native Kotlin/Jetpack Compose Android client for [aprsnet.uk](https://www.aprsne
 - **Direct connection** (v2.5.7+) — optional `aisstream.io` API key in Settings for an independent direct feed; configure separately from the server key to avoid free-tier conflicts
 
 ### Messaging
+- **Direct member messaging** (v2.5.10+) — when both parties hold an aprsnet.uk account, a `📡 APRS | ↗ Direct` route selector appears above the compose bar; Direct bypasses APRS-IS entirely, delivering instantly via the server
 - SMS-style conversation threads per callsign
 - Outgoing bubbles turn green on ACK; incoming messages auto-ACKed per spec
 - Atmospheric message backgrounds — 7 selectable styles (v2.5.4+)
@@ -109,6 +110,8 @@ GitHub Actions publishes `APRS-Net-Android.aab` and `APRS-Net-Android.apk` on ev
 
 | Version | Changes |
 |---------|---------|
+| v2.5.10 | Direct member-to-member messaging with upfront delivery route choice (APRS \| Direct) |
+| v2.5.9 | Message section background applied to Stations and Contacts screens |
 | v2.5.8 | Fix missing AprsApi import after refactor |
 | v2.5.7 | Direct aisstream.io AIS — `AisWebSocket`, `aisApiKey` setting, AIS card in Settings |
 | v2.5.6 | TOCALL-based LoRa/MMDVM/OGN classification in `PacketParser.classify()` |
