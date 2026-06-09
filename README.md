@@ -60,6 +60,7 @@ Native Kotlin/Jetpack Compose Android client for [aprsnet.uk](https://www.aprsne
 - Position mode, beacon comment, symbol
 - Station type filters (all 7 types, persisted and immediately applied)
 - Direct aisstream.io API key (optional, separate from server key)
+- **Geo-fence alerts** (v2.5.11+) — create server-side rules to notify when any station (or a specific callsign) enters or leaves a geographic zone; rules sync across all devices via the member API
 - Notifications and quiet hours
 
 ### Sub-screens
@@ -110,6 +111,7 @@ GitHub Actions publishes `APRS-Net-Android.aab` and `APRS-Net-Android.apk` on ev
 
 | Version | Changes |
 |---------|---------|
+| v2.5.11 | Geo-fence alert rules — `GeoFenceScreen`, server-side CRUD, WS alert handler → local notification |
 | v2.5.10 | Direct member-to-member messaging with upfront delivery route choice (APRS \| Direct) |
 | v2.5.9 | Message section background applied to Stations and Contacts screens |
 | v2.5.8 | Fix missing AprsApi import after refactor |
