@@ -45,3 +45,13 @@ data class Contact(
     val alias: String = "",
     val notes: String = ""
 )
+
+data class AlertRule(
+    val id:            Long   = 0,
+    val type:          String = "geofence_enter",  // "geofence_enter" | "geofence_exit"
+    val watchCallsign: String = "*",
+    val lat:           Double = 0.0,
+    val lon:           Double = 0.0,
+    val radiusMi:      Double = 10.0,
+    val name:          String = ""
+)
