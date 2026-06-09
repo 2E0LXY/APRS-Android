@@ -535,23 +535,16 @@ private fun AisCard(vm: AprsViewModel) {
 @Composable
 private fun GeoFenceSection(vm: AprsViewModel, onNavigate: () -> Unit) {
     if (!vm.settings.memberSignedIn) return
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        colors   = CardDefaults.cardColors(containerColor = BgCard)
-    ) {
+    Card("Geo-fence Alerts") {
         Row(
             modifier = Modifier.fillMaxWidth()
                 .clickable(onClick = onNavigate)
-                .padding(16.dp),
+                .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
-                Text("Geo-fence Alerts", color = TextPrimary, fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium)
-                Text("Notify when a station enters or leaves an area",
-                    color = TextDim, fontSize = 12.sp)
-            }
+            Text("Notify when a station enters or leaves an area",
+                color = TextDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
             Text("›", color = TextDim, fontSize = 20.sp)
         }
     }
