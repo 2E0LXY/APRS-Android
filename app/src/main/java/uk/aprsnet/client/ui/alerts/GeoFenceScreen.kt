@@ -1,6 +1,14 @@
 package uk.aprsnet.client.ui.alerts
 
 import androidx.compose.foundation.layout.*
+import uk.aprsnet.client.ui.theme.Accent
+import uk.aprsnet.client.ui.theme.BgDeep
+import uk.aprsnet.client.ui.theme.AccentBlue
+import uk.aprsnet.client.ui.theme.AccentRose
+import uk.aprsnet.client.ui.theme.TextBase
+import uk.aprsnet.client.ui.theme.TextDim
+import uk.aprsnet.client.ui.theme.TextMute
+
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -56,7 +64,7 @@ fun GeoFenceScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(rules, key = { it.id }) { rule ->
+                    items(rules) { rule ->
                         GeoFenceRuleCard(rule) { vm.deleteAlertRule(rule.id) }
                     }
                 }
@@ -79,11 +87,11 @@ fun GeoFenceScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
 @Composable
 private fun GeoFenceRuleCard(rule: AlertRule, onDelete: () -> Unit) {
     Card(Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = BgCard)) {
+        colors = CardDefaults.cardColors(containerColor = uk.aprsnet.client.ui.theme.BgCard)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    rule.name.ifEmpty { if (rule.type == "geofence_enter") "Enter zone" else "Exit zone" },
+                    text = rule.name.ifEmpty { if (rule.type == "geofence_enter") "Enter zone" else "Exit zone" },
                     color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp
                 )
                 Spacer(Modifier.height(3.dp))
