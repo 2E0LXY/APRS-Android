@@ -85,6 +85,11 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier, onNavigateT
     // Bumped by MemberAccountCard after a successful login so the
     // sibling AprsCredentialsCard re-reads call/pass/ssid from settings.
     var credentialsRefresh by remember { mutableStateOf(0) }
+    var showGeoFence by remember { mutableStateOf(false) }
+    if (showGeoFence) {
+        GeoFenceScreen(vm = vm, modifier = modifier)
+        return
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
