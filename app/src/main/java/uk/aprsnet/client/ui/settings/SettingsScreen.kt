@@ -534,8 +534,16 @@ private fun AisCard(vm: AprsViewModel) {
 // ============================================================================
 @Composable
 private fun GeoFenceSection(vm: AprsViewModel, onNavigate: () -> Unit) {
-    if (!vm.settings.memberSignedIn) return
     Card("Geo-fence Alerts") {
+        if (!vm.settings.memberSignedIn) {
+            Text(
+                "Sign in to your aprsnet.uk member account in the Member Account " +
+                "section above to set up geo-fence alert rules.",
+                color = TextDim, fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+            return@Card
+        }
         Row(
             modifier = Modifier.fillMaxWidth()
                 .clickable(onClick = onNavigate)
