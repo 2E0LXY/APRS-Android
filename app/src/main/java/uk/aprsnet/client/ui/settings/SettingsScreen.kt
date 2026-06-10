@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import uk.aprsnet.client.AprsViewModel
+import uk.aprsnet.client.ui.alerts.GeoFenceScreen
 import uk.aprsnet.client.net.AprsWebSocket
 import uk.aprsnet.client.ui.common.GlassCard
 import uk.aprsnet.client.ui.common.RingProgress
