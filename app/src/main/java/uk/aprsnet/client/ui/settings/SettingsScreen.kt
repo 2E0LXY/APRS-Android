@@ -361,7 +361,7 @@ private fun PositionCard(vm: AprsViewModel) {
         // ── SmartBeacon rate controls ────────────────────────────────
         if (mode == "smart") {
             Spacer(Modifier.size(10.dp))
-            Text("Smart Beacon Rates", color = AccentBlue, fontSize = 13.sp,
+            Text("Smart Beacon Rates", color = Accent, fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.size(6.dp))
 
