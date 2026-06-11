@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import uk.aprsnet.client.aprs.PacketParser
 import uk.aprsnet.client.data.AppDatabase
@@ -177,6 +178,41 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         if (call.isNotEmpty()) ws.setCredentials(call, pass)
         ws.connect()
         startBeaconingIfPermitted()
+    }
+
+    /**
+     * Last time we performed a full server message sync. Used to rate-limit
+     * sync-on-reconnect to once per 5 minutes.
+     */
+    private var lastServerSyncMs = 0L
+
+    /**
+     * Sync server messages and apply any member_sync prefs events.
+     * Called once at startup and wired to ws.onAuthed for reconnect handling.
+     */
+    private fun startSyncListeners() {
+        val token = settings.memberToken
+        // Sync messages on every successful WS auth (login + reconnect)
+        viewModelScope.launch {
+            ws.onAuthed.collect {
+                val t = settings.memberToken
+                if (t.isNullOrEmpty()) return@collect
+                val now = System.currentTimeMillis()
+                if (now - lastServerSyncMs < 5 * 60 * 1000L) return@collect
+                lastServerSyncMs = now
+                val msgs = AprsApi.memberMessages(t)
+                if (msgs.length() > 0) repo.syncFromServer(msgs)
+            }
+        }
+        // Apply server-pushed preference changes from other devices
+        viewModelScope.launch {
+            ws.memberSyncPrefs.collect { prefs ->
+                settings.dropPistar = prefs.optBoolean("drop_pistar", settings.dropPistar)
+                settings.dropDstar  = prefs.optBoolean("drop_dstar",  settings.dropDstar)
+                settings.dropApdesk = prefs.optBoolean("drop_apdesk", settings.dropApdesk)
+                tickFilters()
+            }
+        }
     }
 
     fun startBeaconingIfPermitted() {
