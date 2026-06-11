@@ -102,6 +102,7 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier, onNavigateT
         PositionCard(vm)
         FiltersCard(vm)
         AisCard(vm)
+        GeoFenceSection(vm = vm, onNavigate = { showGeoFence = true })
         NotificationsCard(vm)
         StatusSection(vm)
         HelpCard()
