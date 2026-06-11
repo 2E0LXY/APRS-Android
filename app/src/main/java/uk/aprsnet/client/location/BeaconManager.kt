@@ -20,7 +20,14 @@ class BeaconManager(
     private val ws: AprsWebSocket,
     private val settings: SettingsStore
 ) {
-    private val smartBeacon = SmartBeacon()
+    // SmartBeacon is re-created whenever beaconing starts so that settings
+    // changes (min interval, slow/fast rate) take effect on next session.
+    private fun buildSmartBeacon() = SmartBeacon(
+        minBeaconSec  = settings.smartMinSec,
+        slowRateSec   = settings.smartSlowRateSec,
+        fastRateSec   = settings.smartFastRateSec
+    )
+    private var smartBeacon = buildSmartBeacon()
 
     private val _myPosition = MutableStateFlow<Fix?>(null)
     /** The user's latest position, for the "my location" map marker. */
@@ -35,7 +42,7 @@ class BeaconManager(
     fun start(scope: CoroutineScope) {
         if (started) return
         started = true
-        smartBeacon.reset()
+        smartBeacon = buildSmartBeacon()
         location.start()
         scope.launch {
             location.lastFix.collect { fix ->
