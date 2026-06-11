@@ -2,6 +2,7 @@ package uk.aprsnet.client.ui.settings
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -87,6 +88,7 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier, onNavigateT
     var credentialsRefresh by remember { mutableStateOf(0) }
     var showGeoFence by remember { mutableStateOf(false) }
     if (showGeoFence) {
+        BackHandler { showGeoFence = false }
         GeoFenceScreen(vm = vm, modifier = modifier)
         return
     }
