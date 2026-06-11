@@ -62,6 +62,22 @@ class SettingsStore(context: Context) {
         get() = prefs.getString("position_mode", "off") ?: "off"
         set(v) = prefs.edit().putString("position_mode", v).apply()
 
+    // -- SmartBeacon tuning -------------------------------------------
+    /** Hard floor: never beacon more often than this (seconds). Default 30. */
+    var smartMinSec: Int
+        get() = prefs.getInt("smart_min_sec", 30).coerceIn(10, 600)
+        set(v) = prefs.edit().putInt("smart_min_sec", v.coerceIn(10, 600)).apply()
+
+    /** Beacon period when slow or stationary (seconds). Default 1200 (20 min). */
+    var smartSlowRateSec: Int
+        get() = prefs.getInt("smart_slow_rate_sec", 1200).coerceIn(60, 3600)
+        set(v) = prefs.edit().putInt("smart_slow_rate_sec", v.coerceIn(60, 3600)).apply()
+
+    /** Beacon period when moving fast (seconds). Default 120 (2 min). */
+    var smartFastRateSec: Int
+        get() = prefs.getInt("smart_fast_rate_sec", 120).coerceIn(10, 600)
+        set(v) = prefs.edit().putInt("smart_fast_rate_sec", v.coerceIn(10, 600)).apply()
+
     var beaconComment: String
         get() = prefs.getString("beacon_comment", "APRS Net Android") ?: "APRS Net Android"
         set(v) = prefs.edit().putString("beacon_comment", v).apply()
