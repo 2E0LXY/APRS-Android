@@ -50,6 +50,18 @@ class AprsWebSocket {
     /** Connection state for the UI. */
     val state = MutableStateFlow(ConnState.DISCONNECTED)
 
+    /**
+     * Emits a preferences JSONObject whenever the server pushes a member_sync
+     * event — i.e. another device saved preferences and we should apply them.
+     */
+    val memberSyncPrefs = MutableSharedFlow<JSONObject>(extraBufferCapacity = 8)
+
+    /**
+     * Emits Unit each time authentication succeeds (including on reconnect).
+     * Collectors use this to trigger a server-side message history sync.
+     */
+    val onAuthed = MutableSharedFlow<Unit>(extraBufferCapacity = 2)
+
     fun setCredentials(call: String, pass: String) {
         callsign = call.trim().uppercase()
         passcode = pass.trim()
@@ -109,9 +121,9 @@ class AprsWebSocket {
                 val o = JSONObject(text)
                 when (o.optString("type")) {
                     "auth_ack", "authok", "logresp" -> {
-                        // server sends auth_ack with status=success on success
                         if (o.optString("status", "success") == "success") {
                             state.value = ConnState.AUTHED
+                            onAuthed.tryEmit(Unit)
                         }
                     }
                     "rx", "obj" -> {
@@ -119,6 +131,10 @@ class AprsWebSocket {
                             rawPackets.tryEmit(it)
                         }
                         o.optJSONObject("data")?.let { positionData.tryEmit(it) }
+                    }
+                    "member_sync" -> {
+                        // Another device updated preferences — apply them here.
+                        o.optJSONObject("data")?.let { memberSyncPrefs.tryEmit(it) }
                     }
                 }
             } catch (_: Exception) { /* ignore malformed */ }
