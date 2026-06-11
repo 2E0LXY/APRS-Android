@@ -284,7 +284,6 @@ private fun AprsCredentialsCard(vm: AprsViewModel, refreshKey: Int) {
 // ============================================================================
 // Position / beaconing
 // ============================================================================
-@Composable
 /** Row of selectable rate chips — one per option in opts. */
 @Composable
 private fun BeaconRateRow(
@@ -299,6 +298,7 @@ private fun BeaconRateRow(
     }
 }
 
+@Composable
 private fun PositionCard(vm: AprsViewModel) {
     val s = vm.settings
     var mode by remember { mutableStateOf(s.positionMode) }
