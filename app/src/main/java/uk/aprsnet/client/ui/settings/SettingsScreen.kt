@@ -285,6 +285,20 @@ private fun AprsCredentialsCard(vm: AprsViewModel, refreshKey: Int) {
 // Position / beaconing
 // ============================================================================
 @Composable
+/** Row of selectable rate chips — one per option in opts. */
+@Composable
+private fun BeaconRateRow(
+    opts: List<Pair<Int, String>>,
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        opts.forEach { (value, label) ->
+            ModeChip(label, selected == value) { onSelect(value) }
+        }
+    }
+}
+
 private fun PositionCard(vm: AprsViewModel) {
     val s = vm.settings
     var mode by remember { mutableStateOf(s.positionMode) }
@@ -292,6 +306,9 @@ private fun PositionCard(vm: AprsViewModel) {
     var symT by remember { mutableStateOf(s.symbolTable) }
     var symC by remember { mutableStateOf(s.symbolCode) }
     var statusTxt by remember { mutableStateOf(s.statusText) }
+    var minSec by remember { mutableStateOf(s.smartMinSec) }
+    var slowRate by remember { mutableStateOf(s.smartSlowRateSec) }
+    var fastRate by remember { mutableStateOf(s.smartFastRateSec) }
     var saved by remember { mutableStateOf(false) }
 
     Card("Position / Beaconing") {
@@ -340,6 +357,38 @@ private fun PositionCard(vm: AprsViewModel) {
                 "less often when still. Requires location permission.",
             color = TextDim, fontSize = 11.sp
         )
+
+        // ── SmartBeacon rate controls ────────────────────────────────
+        if (mode == "smart") {
+            Spacer(Modifier.size(10.dp))
+            Text("Smart Beacon Rates", color = AccentBlue, fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.size(6.dp))
+
+            // Minimum interval (hard floor)
+            Text("Minimum interval (hard floor between any two beacons)",
+                color = TextDim, fontSize = 12.sp)
+            val minOpts = listOf(10 to "10 sec", 30 to "30 sec", 60 to "1 min",
+                                 120 to "2 min", 300 to "5 min")
+            BeaconRateRow(minOpts, minSec) { minSec = it }
+            Spacer(Modifier.size(8.dp))
+
+            // Slow / stationary rate
+            Text("Slow / stationary rate (when speed ≤ 5 km/h)",
+                color = TextDim, fontSize = 12.sp)
+            val slowOpts = listOf(300 to "5 min", 600 to "10 min", 1200 to "20 min",
+                                  1800 to "30 min", 3600 to "60 min")
+            BeaconRateRow(slowOpts, slowRate) { slowRate = it }
+            Spacer(Modifier.size(8.dp))
+
+            // Fast rate
+            Text("Fast rate (when speed ≥ 90 km/h)",
+                color = TextDim, fontSize = 12.sp)
+            val fastOpts = listOf(30 to "30 sec", 60 to "1 min", 120 to "2 min",
+                                  300 to "5 min")
+            BeaconRateRow(fastOpts, fastRate) { fastRate = it }
+        }
+
         Button(
             onClick = {
                 s.positionMode = mode
@@ -347,6 +396,9 @@ private fun PositionCard(vm: AprsViewModel) {
                 s.statusText = statusTxt
                 s.symbolTable = symT.ifEmpty { "/" }
                 s.symbolCode = symC.ifEmpty { ">" }
+                s.smartMinSec = minSec
+                s.smartSlowRateSec = slowRate
+                s.smartFastRateSec = fastRate
                 vm.applySettings()
                 saved = true
             },
