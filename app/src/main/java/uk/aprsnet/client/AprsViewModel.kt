@@ -178,6 +178,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         if (call.isNotEmpty()) ws.setCredentials(call, pass)
         ws.connect()
         startBeaconingIfPermitted()
+        startSyncListeners()
     }
 
     /**
