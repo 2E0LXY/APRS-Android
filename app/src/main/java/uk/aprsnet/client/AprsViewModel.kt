@@ -202,7 +202,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                 if (now - lastServerSyncMs < 5 * 60 * 1000L) return@collect
                 lastServerSyncMs = now
                 val msgs = AprsApi.memberMessages(t)
-                if (msgs.length() > 0) repo.syncFromServer(msgs)
+                if (msgs.length() > 0) messages.syncFromServer(msgs)
             }
         }
         // Apply server-pushed preference changes from other devices
