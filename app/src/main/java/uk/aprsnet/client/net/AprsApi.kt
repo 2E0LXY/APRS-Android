@@ -206,6 +206,27 @@ object AprsApi {
 
 
     /**
+     * GET /api/member/messages — returns the full server-side message history
+     * (sent + received, with "direction" field) for the authenticated member.
+     * Used to sync messages seen on other devices into the local Room database.
+     * Returns an empty array on auth or network failure.
+     */
+    suspend fun memberMessages(token: String): JSONArray =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val req = Request.Builder()
+                    .url("$BASE/api/member/messages")
+                    .header("X-Member-Token", token)
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@runCatching JSONArray()
+                    val raw = resp.body?.string() ?: return@runCatching JSONArray()
+                    JSONArray(raw)
+                }
+            }.getOrDefault(JSONArray())
+        }
+
+    /**
      * GET /api/members/callsigns - returns the set of registered member callsigns.
      * Public endpoint; cached 5 minutes server-side. Used to badge ANUK members
      * throughout the UI. Silently returns empty set on error.
