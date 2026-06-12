@@ -28,6 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.toArgb
+import uk.aprsnet.client.model.WxData
+import uk.aprsnet.client.ui.common.weatherCondition
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -372,7 +375,7 @@ private fun syncMarkers(
             val m = Marker(map).apply {
                 position = GeoPoint(st.lat, st.lon)
                 title = st.callsign
-                icon = dotIcon(map, st.type, st.symbolTable, st.symbolCode)
+                icon = dotIcon(map, st.type, st.symbolTable, st.symbolCode, st.wx)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 setOnMarkerClickListener { _, _ -> onClick(st.callsign); true }
             }
@@ -381,7 +384,7 @@ private fun syncMarkers(
             val gp = GeoPoint(st.lat, st.lon)
             if (existing.position != gp) existing.position = gp
             // refresh icon too, in case station type/symbol changed
-            existing.icon = dotIcon(map, st.type, st.symbolTable, st.symbolCode)
+            existing.icon = dotIcon(map, st.type, st.symbolTable, st.symbolCode, st.wx)
         }
     }
 
@@ -417,16 +420,49 @@ private val glyphIconCache = HashMap<String, BitmapDrawable>()
  * Cached per (colour, glyph) pair. Falls back to a plain dot when no glyph
  * is known for the symbol pair.
  */
+/**
+ * Buckets a WxData reading into a short string used both for cache keys and
+ * to decide the marker's colour/glyph. Mirrors weatherCondition()'s logic
+ * at a coarser level so subtle reading changes (e.g. 61F vs 62F) don't
+ * thrash the icon cache.
+ */
+private fun wxConditionKey(wx: WxData?): String {
+    if (wx == null) return "none"
+    val rain = (wx.rain1hIn ?: 0.0) > 0.0
+    val windy = (wx.gustMph ?: wx.windSpeedMph ?: 0.0) >= 20.0
+    val t = wx.tempF
+    return when {
+        rain && windy                  -> "storm"
+        rain && t != null && t <= 32.0 -> "snow"
+        rain                            -> "rain"
+        t != null && t <= 32.0          -> "snow"
+        windy                           -> "wind"
+        t != null && t >= 75.0          -> "hot"
+        t != null && t >= 50.0          -> "mild"
+        else                            -> "cloud"
+    }
+}
+
 private fun dotIcon(
     map: MapView,
     type: StationType,
     symbolTable: Char,
-    symbolCode: Char
+    symbolCode: Char,
+    wx: WxData? = null
 ): BitmapDrawable {
-    val colour = typeColours[type] ?: 0xFF94A3B8.toInt()
-    // Cache key includes the symbol so a station changing symbol gets a
-    // fresh icon. Sprite-vs-glyph fallback handled below.
-    val key = "${colour}_${symbolTable}${symbolCode}"
+    // Weather stations: tint the marker by current conditions (rain, snow,
+    // storm, wind, hot, mild, cloudy) instead of a flat colour, and draw the
+    // matching emoji as the glyph so conditions are visible at a glance.
+    val wxKey = if (type == StationType.WEATHER) wxConditionKey(wx) else null
+    val (colour, wxEmoji) = if (type == StationType.WEATHER && wx != null) {
+        val (emoji, tint) = weatherCondition(wx)
+        tint.toArgb() to emoji
+    } else {
+        (typeColours[type] ?: 0xFF94A3B8.toInt()) to null
+    }
+    // Cache key includes the symbol (and WX condition bucket, if weather) so
+    // a station changing symbol or conditions gets a fresh icon.
+    val key = "${colour}_${symbolTable}${symbolCode}${wxKey ?: ""}"
     glyphIconCache[key]?.let { return it }
 
     val d = map.context.resources.displayMetrics.density
@@ -442,6 +478,22 @@ private fun dotIcon(
     }
     canvas.drawCircle(r, r, r, outline)
     canvas.drawCircle(r, r, r - 2f * d, fill)
+
+    // Weather stations: draw the condition emoji (rain/snow/sun/etc.) in
+    // place of the generic APRS sprite, so the marker itself communicates
+    // current conditions.
+    if (wxEmoji != null) {
+        val txt = Paint().apply {
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+            textSize = 13f * d
+        }
+        val fm = txt.fontMetrics
+        canvas.drawText(wxEmoji, r, r - (fm.ascent + fm.descent) / 2f, txt)
+        val drawable = BitmapDrawable(map.context.resources, bmp)
+        glyphIconCache[key] = drawable
+        return drawable
+    }
 
     // Prefer the real APRS sprite over our 3-letter glyph fallback. The
     // sprite is drawn slightly smaller than the inner fill so the colour
