@@ -1,5 +1,27 @@
 package uk.aprsnet.client.model
 
+/**
+ * Decoded APRS weather-report data block (DTI '_' or symbol code '_').
+ * Wind speed/gust are mph per the APRS spec (not knots, unlike position
+ * course/speed). Pressure is hPa. Humidity 100 represents the spec's "00"
+ * encoding (100%). Solar/UV/lightning come from the optional comment suffix
+ * (L###, UV#, LS#) used by Ecowitt and similar consumer stations.
+ */
+data class WxData(
+    val windDirDeg: Int? = null,
+    val windSpeedMph: Double? = null,
+    val gustMph: Double? = null,
+    val tempF: Double? = null,
+    val rain1hIn: Double? = null,
+    val rain24hIn: Double? = null,
+    val rainDailyIn: Double? = null,
+    val humidityPct: Int? = null,
+    val pressureHpa: Double? = null,
+    val solarWm2: Int? = null,
+    val uvIndex: Int? = null,
+    val lightningCount: Int? = null
+)
+
 /** A station heard on the APRS network. */
 data class Station(
     val callsign: String,
@@ -14,7 +36,8 @@ data class Station(
     val path: String = "",
     val raw: String = "",
     val lastHeard: Long = System.currentTimeMillis(),
-    val type: StationType = StationType.HAM
+    val type: StationType = StationType.HAM,
+    val wx: WxData? = null
 )
 
 enum class StationType { HAM, WEATHER, GLIDER, OBJECT, SHIP, LORA, MMDVM, OTHER }
