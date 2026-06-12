@@ -73,4 +73,18 @@ interface MessageDao {
            WHERE outgoing = 1 AND state = 'SENT' AND retries < 3"""
     )
     suspend fun pendingAcks(): List<MessageEntity>
+
+    /** Lookup by server UUID — used for sync deduplication. */
+    @Query(
+        """SELECT * FROM messages
+           WHERE serverMsgId = :serverId AND remoteCall = :call LIMIT 1"""
+    )
+    suspend fun findByServerId(serverId: String, call: String): MessageEntity?
+
+    /**
+     * Insert only if no row with the same serverMsgId + remoteCall exists.
+     * Used during server sync to avoid duplicates.
+     */
+    @Insert(onConflict = androidx.room.OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(msg: MessageEntity): Long
 }
