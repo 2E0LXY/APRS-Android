@@ -4,6 +4,7 @@ import uk.aprsnet.client.model.Message
 import uk.aprsnet.client.model.MessageState
 import uk.aprsnet.client.model.Station
 import uk.aprsnet.client.model.StationType
+import uk.aprsnet.client.model.WxData
 import kotlin.math.pow
 
 /**
@@ -123,15 +124,22 @@ object PacketParser {
             if (lat !in -90.0..90.0 || lon !in -180.0..180.0) return null
         }
 
-        // course/speed:  ccc/sss
+        // course/speed:  ccc/sss - NOT for weather packets, where the same
+        // "CCC/SSS" position holds wind direction/speed instead.
         var course: Int? = null
         var speed: Double? = null
-        val csM = Regex("""^(\d{3})/(\d{3})""").find(rest)
-        if (csM != null) {
-            course = csM.groupValues[1].toIntOrNull()
-            val knots = csM.groupValues[2].toDoubleOrNull()
-            if (knots != null) speed = knots * 1.852
-            rest = rest.substring(7)
+        var wx: WxData? = null
+        if (symCode == '_') {
+            wx = parseWx(rest)
+            if (wx != null) rest = stripWx(rest)
+        } else {
+            val csM = Regex("""^(\d{3})/(\d{3})""").find(rest)
+            if (csM != null) {
+                course = csM.groupValues[1].toIntOrNull()
+                val knots = csM.groupValues[2].toDoubleOrNull()
+                if (knots != null) speed = knots * 1.852
+                rest = rest.substring(7)
+            }
         }
 
         return Station(
@@ -145,8 +153,63 @@ object PacketParser {
             speedKmh = speed,
             path = path,
             raw = raw,
-            type = classify(call, path, symTable, symCode)
+            type = classify(call, path, symTable, symCode),
+            wx = wx
         )
+    }
+
+    // Standard APRS weather data block:
+    //   CCC/SSS[gGGG]tTTT[rRRR][pPPP][PPPP][hHH][bBBBBB]
+    // wind dir / wind speed (mph) / [gust mph] / temp F / [rain 1h] /
+    // [rain since midnight] / [rain 24h] / [humidity %, 00=100] / [pressure 0.1hPa]
+    private val WX_RE = Regex(
+        """^(\d{3})/(\d{3})(?:g(\d{3}))?t(-?\d{1,3})(?:r(\d{3}))?(?:p(\d{3}))?(?:P(\d{3}))?(?:h(\d{2}))?(?:b(\d{5}))?"""
+    )
+    private val L_RE  = Regex("""\bL(\d{1,4})\b""")
+    private val UV_RE = Regex("""\bUV(\d{1,2})\b""")
+    private val LS_RE = Regex("""\bLS(\d{1,4})\b""")
+
+    /** Parses the WX data block + optional L###/UV#/LS# comment suffixes. */
+    private fun parseWx(rest: String): WxData? {
+        val m = WX_RE.find(rest) ?: return null
+        val g = m.groupValues
+        val windDir   = g[1].toIntOrNull()
+        val windSpeed = g[2].toIntOrNull()?.toDouble()
+        val gust      = g[3].toIntOrNull()?.toDouble()
+        val temp      = g[4].toIntOrNull()?.toDouble()
+        val rain1h    = g[5].toIntOrNull()?.let { it / 100.0 }
+        val rainSince = g[6].toIntOrNull()?.let { it / 100.0 } // since midnight
+        val rain24h   = g[7].toIntOrNull()?.let { it / 100.0 }
+        val humidity  = g[8].toIntOrNull()?.let { if (it == 0) 100 else it }
+        val pressure  = g[9].toIntOrNull()?.let { it / 10.0 }
+
+        val solar     = L_RE.find(rest)?.groupValues?.get(1)?.toIntOrNull()
+        val uv        = UV_RE.find(rest)?.groupValues?.get(1)?.toIntOrNull()
+        val lightning = LS_RE.find(rest)?.groupValues?.get(1)?.toIntOrNull()
+
+        return WxData(
+            windDirDeg = windDir,
+            windSpeedMph = windSpeed,
+            gustMph = gust,
+            tempF = temp,
+            rain1hIn = rain1h,
+            rain24hIn = rain24h ?: rainSince,
+            rainDailyIn = rainSince,
+            humidityPct = humidity,
+            pressureHpa = pressure,
+            solarWm2 = solar,
+            uvIndex = uv,
+            lightningCount = lightning
+        )
+    }
+
+    /** Removes the WX data block and L###/UV#/LS# tokens, leaving free text. */
+    private fun stripWx(rest: String): String {
+        var out = WX_RE.replaceFirst(rest, "")
+        out = L_RE.replace(out, "")
+        out = UV_RE.replace(out, "")
+        out = LS_RE.replace(out, "")
+        return out.replace(Regex("""\s+"""), " ").trim()
     }
 
     private fun decodeBase91(s: String): Double {
