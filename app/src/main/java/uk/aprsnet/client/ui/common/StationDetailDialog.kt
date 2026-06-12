@@ -18,9 +18,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import uk.aprsnet.client.aprs.Symbols
 import uk.aprsnet.client.location.Fix
 import uk.aprsnet.client.model.Station
+import uk.aprsnet.client.model.WxData
 import uk.aprsnet.client.ui.theme.Accent
 import uk.aprsnet.client.ui.theme.TextBase
 import uk.aprsnet.client.ui.theme.TextDim
@@ -119,6 +124,10 @@ fun StationDetailDialog(
                         )
                     }
                 }
+                station.wx?.let { wx ->
+                    Spacer(Modifier.size(8.dp))
+                    WeatherCard(wx)
+                }
                 if (station.path.isNotEmpty()) {
                     Spacer(Modifier.size(4.dp))
                     Text("Path", color = TextDim, fontSize = 11.sp)
@@ -183,4 +192,92 @@ private fun bearingDeg(lat1: Double, lon1: Double, lat2: Double, lon2: Double): 
     val x = cos(phi1) * sin(phi2) - sin(phi1) * cos(phi2) * cos(lam)
     val b = Math.toDegrees(atan2(y, x))
     return ((b + 360) % 360).roundToInt()
+}
+// ---------------------------------------------------------------------------
+// Weather Data card - shown when a station's last packet decoded a standard
+// APRS weather report (symbol code '_'). Displays a colourful icon reflecting
+// current conditions, plus the key readings.
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns an emoji + tint colour describing current conditions, derived from
+ * temperature, rainfall and wind. Order matters: precipitation/storms take
+ * priority over plain temperature so a cold rainy day reads as rain/snow,
+ * not just "cold".
+ */
+fun weatherCondition(wx: WxData): Pair<String, Color> {
+    val rain = (wx.rain1hIn ?: 0.0) > 0.0
+    val windy = (wx.gustMph ?: wx.windSpeedMph ?: 0.0) >= 20.0
+    val tempF = wx.tempF
+    return when {
+        rain && windy            -> "\u26C8\uFE0F" to Color(0xFF9333EA) // storm - purple
+        rain && tempF != null && tempF <= 32.0 -> "\u2744\uFE0F" to Color(0xFF7DD3FC) // snow - light blue
+        rain                      -> "\uD83C\uDF27\uFE0F" to Color(0xFF3B82F6) // rain - blue
+        tempF != null && tempF <= 32.0 -> "\u2744\uFE0F" to Color(0xFF7DD3FC) // freezing - light blue
+        windy                     -> "\uD83D\uDCA8" to Color(0xFF94A3B8) // windy - grey
+        tempF != null && tempF >= 75.0 -> "\u2600\uFE0F" to Color(0xFFF59E0B) // hot/clear - orange
+        tempF != null && tempF >= 50.0 -> "\uD83C\uDF24\uFE0F" to Color(0xFFFBBF24) // mild/sunny - amber
+        else                      -> "\u26C5" to Color(0xFF94A3B8) // default - partly cloudy, grey
+    }
+}
+
+/** Human-readable label matching [weatherCondition]'s classification. */
+private fun weatherLabel(wx: WxData): String {
+    val rain = (wx.rain1hIn ?: 0.0) > 0.0
+    val windy = (wx.gustMph ?: wx.windSpeedMph ?: 0.0) >= 20.0
+    val tempF = wx.tempF
+    return when {
+        rain && windy                          -> "Storm"
+        rain && tempF != null && tempF <= 32.0 -> "Snow"
+        rain                                    -> "Rain"
+        tempF != null && tempF <= 32.0          -> "Freezing"
+        windy                                   -> "Windy"
+        tempF != null && tempF >= 75.0          -> "Hot / clear"
+        tempF != null && tempF >= 50.0          -> "Mild"
+        else                                    -> "Cloudy"
+    }
+}
+
+@Composable
+private fun WeatherCard(wx: WxData) {
+    val (icon, tint) = weatherCondition(wx)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(tint.copy(alpha = 0.12f))
+            .padding(10.dp)
+    ) {
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(icon, fontSize = 22.sp)
+            Spacer(Modifier.size(8.dp))
+            Text(
+                "Weather - " + weatherLabel(wx),
+                color = tint, fontWeight = FontWeight.Bold, fontSize = 14.sp
+            )
+        }
+        Spacer(Modifier.size(6.dp))
+        wx.tempF?.let { WeatherRow("Temp", "%.0f\u00B0F (%.0f\u00B0C)".format(it, (it - 32) * 5 / 9)) }
+        wx.humidityPct?.let { WeatherRow("Humidity", "$it%") }
+        wx.pressureHpa?.let { WeatherRow("Pressure", "%.1f hPa".format(it)) }
+        if (wx.windSpeedMph != null || wx.windDirDeg != null) {
+            val dir = wx.windDirDeg?.let { "$it\u00B0 " } ?: ""
+            val spd = wx.windSpeedMph?.let { "%.0f mph".format(it) } ?: "n/a"
+            WeatherRow("Wind", "$dir$spd")
+        }
+        wx.gustMph?.let { if (it > 0) WeatherRow("Gust", "%.0f mph".format(it)) }
+        wx.rain1hIn?.let { if (it > 0) WeatherRow("Rain (1h)", "%.2f in".format(it)) }
+        wx.rainDailyIn?.let { if (it > 0) WeatherRow("Rain (today)", "%.2f in".format(it)) }
+        wx.solarWm2?.let { WeatherRow("Solar", "$it W/m\u00B2") }
+        wx.uvIndex?.let { WeatherRow("UV Index", "$it") }
+        wx.lightningCount?.let { if (it > 0) WeatherRow("Lightning strikes", "$it") }
+    }
+}
+
+@Composable
+private fun WeatherRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+        Text(label, color = TextDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
+        Text(value, color = TextBase, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
 }
