@@ -789,6 +789,7 @@ private fun AppearanceCard(vm: AprsViewModel) {
                         .clickable {
                             msgBgId = idx
                             s.messageBackgroundId = idx
+                            vm.pushMemberPreferences()
                         }
                         .padding(vertical = 4.dp)
                 ) {
@@ -797,6 +798,7 @@ private fun AppearanceCard(vm: AprsViewModel) {
                         onClick = {
                             msgBgId = idx
                             s.messageBackgroundId = idx
+                            vm.pushMemberPreferences()
                         }
                     )
                     Spacer(Modifier.size(6.dp))
