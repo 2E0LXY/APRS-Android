@@ -18,7 +18,8 @@ data class MessageEntity(
     val aprsMsgId: String?,        // the {NN id, for ACK matching
     val state: String,             // MessageState name
     val read: Boolean = false,     // for unread badges
-    val retries: Int = 0
+    val retries: Int = 0,
+    val serverMsgId: String? = null  // UUID from server — sync deduplication
 ) {
     fun stateEnum(): MessageState =
         runCatching { MessageState.valueOf(state) }.getOrDefault(MessageState.SENT)
