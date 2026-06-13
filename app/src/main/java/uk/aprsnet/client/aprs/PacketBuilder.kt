@@ -8,26 +8,26 @@ import kotlin.math.floor
  */
 object PacketBuilder {
 
-    /** A text message:  CALL>APRS,TCPIP*::DEST_____:text{NN  */
+    /** A text message:  CALL>APNA,TCPIP*::DEST_____:text{NN  */
     fun message(from: String, to: String, text: String, msgId: String): String {
         val dest = to.uppercase().padEnd(9, ' ').substring(0, 9)
-        return "${from.uppercase()}>APRS,TCPIP*::$dest:$text{$msgId"
+        return "${from.uppercase()}>APNA,TCPIP*::$dest:$text{$msgId"
     }
 
-    /** An APRS status packet: CALL>APRS,TCPIP*:>STATUS TEXT */
+    /** An APRS status packet: CALL>APNA,TCPIP*:>STATUS TEXT */
     fun status(from: String, text: String): String {
-        return "${from.uppercase()}>APRS,TCPIP*:>$text"
+        return "${from.uppercase()}>APNA,TCPIP*:>$text"
     }
 
-    /** An ACK:  CALL>APRS,TCPIP*::SENDER___:ackNN  */
+    /** An ACK:  CALL>APNA,TCPIP*::SENDER___:ackNN  */
     fun ack(from: String, sender: String, msgId: String): String {
         val dest = sender.uppercase().padEnd(9, ' ').substring(0, 9)
-        return "${from.uppercase()}>APRS,TCPIP*::$dest:ack$msgId"
+        return "${from.uppercase()}>APNA,TCPIP*::$dest:ack$msgId"
     }
 
     /**
      * A position beacon (position-with-messaging '=' indicator):
-     *   CALL>APRS,TCPIP*:=DDMM.hhN/DDDMM.hhW>comment
+     *   CALL>APNA,TCPIP*:=DDMM.hhN/DDDMM.hhWXcomment
      */
     fun position(
         from: String,
@@ -37,7 +37,7 @@ object PacketBuilder {
         symbolCode: Char = '>',
         comment: String = ""
     ): String {
-        return "${from.uppercase()}>APRS,TCPIP*:=" +
+        return "${from.uppercase()}>APNA,TCPIP*:=" +
             formatLat(lat) + symbolTable + formatLon(lon) + symbolCode + comment
     }
 

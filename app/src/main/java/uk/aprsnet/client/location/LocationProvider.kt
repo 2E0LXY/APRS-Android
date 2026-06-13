@@ -62,7 +62,7 @@ class LocationProvider(context: Context) {
             Priority.PRIORITY_HIGH_ACCURACY, 10_000L
         ).setMinUpdateIntervalMillis(5_000L).build()
         runCatching {
-            client.requestLocationUpdates(request, callback, null)
+            client.requestLocationUpdates(request, callback, android.os.Looper.getMainLooper())
         }
     }
 

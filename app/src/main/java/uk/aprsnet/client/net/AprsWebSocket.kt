@@ -161,9 +161,8 @@ class AprsWebSocket {
     }
 
     private fun scheduleReconnect() {
-        if (state.value == ConnState.DISCONNECTED && !shouldRun) return
-        state.value = ConnState.DISCONNECTED
         if (!shouldRun) return
+        state.value = ConnState.DISCONNECTED
         retry++
         val delayMs = min(30000.0, 1000.0 * 1.5.pow(min(retry, 10))).toLong()
         Thread {

@@ -17,7 +17,11 @@ class MessageRepository(
     /** Set by the ViewModel once the user has configured a callsign. */
     @Volatile var myCallsign: String = ""
 
-    private var msgIdCounter = 1
+    // Start the counter offset from the current time so IDs don't collide
+    // with any unACKed messages left over from the previous app session.
+    // APRS message IDs cycle 00-99; using (seconds % 97) + 1 distributes the
+    // start point across most of the space while staying within range.
+    private var msgIdCounter = ((System.currentTimeMillis() / 1000L) % 97 + 1).toInt()
 
     fun conversations(): Flow<List<ConversationSummary>> = dao.conversations()
     fun thread(call: String): Flow<List<MessageEntity>> = dao.thread(call)

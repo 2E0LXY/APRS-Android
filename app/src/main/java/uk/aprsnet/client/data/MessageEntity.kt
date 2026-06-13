@@ -1,6 +1,7 @@
 package uk.aprsnet.client.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import uk.aprsnet.client.model.MessageState
 
@@ -8,7 +9,10 @@ import uk.aprsnet.client.model.MessageState
  * A stored APRS message - one row per message, grouped into conversations
  * by remoteCall. Persists so threads survive app restarts.
  */
-@Entity(tableName = "messages")
+@Entity(
+    tableName = "messages",
+    indices = [Index(value = ["serverMsgId", "remoteCall"], unique = true, name = "idx_server_msg")]
+)
 data class MessageEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val remoteCall: String,        // the other party's callsign
