@@ -65,9 +65,16 @@ class AprsWebSocket {
     fun setCredentials(call: String, pass: String) {
         callsign = call.trim().uppercase()
         passcode = pass.trim()
-        // if already connected, (re)authenticate
-        if (state.value == ConnState.CONNECTED || state.value == ConnState.AUTHED) {
-            authenticate()
+        // Reconnect so the new credentials are applied immediately.
+        // If already authed with different credentials, just re-authenticate;
+        // if disconnected or connecting, a full reconnect ensures a clean auth.
+        when (state.value) {
+            ConnState.AUTHED, ConnState.CONNECTED -> authenticate()
+            else -> {
+                ws?.close(1000, "credential change")
+                ws = null
+                if (shouldRun) openSocket()
+            }
         }
     }
 
