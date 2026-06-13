@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uk.aprsnet.client.AprsViewModel
+import uk.aprsnet.client.aprs.KNOWN_NETS
 import uk.aprsnet.client.ui.theme.Accent
 import uk.aprsnet.client.ui.theme.BgDeep
 import uk.aprsnet.client.ui.theme.AccentBlue
@@ -80,6 +82,42 @@ fun ConversationListScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
       uk.aprsnet.client.ui.common.MessageBackground(backgroundId = vm.settings.messageBackgroundId) {
+        Column(Modifier.fillMaxSize()) {
+
+          // ── Net Quick Check-in strip ────────────────────────────────
+          Column(
+              modifier = Modifier
+                  .fillMaxWidth()
+                  .background(Color(0xFF0B1526))
+                  .padding(horizontal = 12.dp, vertical = 8.dp)
+          ) {
+              Text("📡 Net Check-in",
+                  color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold,
+                  fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
+              Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) {
+                  KNOWN_NETS.filter { it.ansrvrGroup != null || it.destination != "ANSRVR" }.take(3).forEach { net ->
+                      Box(
+                          modifier = Modifier
+                              .weight(1f)
+                              .clip(RoundedCornerShape(8.dp))
+                              .background(Color(0xFF0D2137))
+                              .clickable { onOpenThread(net.destination) }
+                              .padding(horizontal = 6.dp, vertical = 6.dp)
+                      ) {
+                          Column {
+                              Text(net.name.substringBefore(" (").substringBefore(" Thursday").substringBefore(" Sunday"),
+                                  color = Color(0xFF38BDF8), fontSize = 9.sp,
+                                  fontWeight = FontWeight.Bold, maxLines = 1)
+                              Text("→ ${net.destination}",
+                                  color = TextDim, fontSize = 8.sp, maxLines = 1)
+                          }
+                      }
+                  }
+              }
+          }
+
+          // ── Conversation list ───────────────────────────────────────
+          Box(Modifier.weight(1f)) {
         if (conversations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
@@ -142,6 +180,8 @@ fun ConversationListScreen(
         ) {
             Icon(Icons.Default.Edit, contentDescription = "New message")
         }
+          }  // closes weight(1f) Box
+        }  // closes outer Column
       }  // closes MessageBackground wrap
     }
 

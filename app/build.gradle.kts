@@ -25,8 +25,8 @@ android {
         applicationId = "uk.aprsnet.client"
         minSdk = 26
         targetSdk = 35
-        versionCode = 39
-        versionName = "2.6.5"
+        versionCode = 40
+        versionName = "2.6.6"
     }
 
     buildTypes {
