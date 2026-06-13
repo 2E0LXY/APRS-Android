@@ -4,6 +4,9 @@ build/
 app/build/
 local.properties
 
+# Play Console publishing credentials (never commit)
+play-publisher-key.json
+
 # Gradle wrapper jar is generated in CI
 gradle/wrapper/gradle-wrapper.jar
 

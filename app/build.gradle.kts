@@ -2,6 +2,19 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
+    id("com.github.triplet.play")
+}
+
+play {
+    // Service account JSON is written to this path by CI from a repo secret;
+    // not present (and not required) for local/manual gradle invocations
+    // unless you're running publish tasks yourself.
+    serviceAccountCredentials.set(file("${rootProject.projectDir}/play-publisher-key.json"))
+    defaultToAppBundles.set(true)
+    track.set("internal")
+    // Don't let a publish failure (e.g. missing credentials locally) break
+    // unrelated tasks like assembleDebug/bundleRelease.
+    enabled.set(file("${rootProject.projectDir}/play-publisher-key.json").exists())
 }
 
 android {

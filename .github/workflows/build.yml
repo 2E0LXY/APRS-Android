@@ -67,3 +67,21 @@ jobs:
             dist/APRS-Net-Android.aab
             dist/APRS-Net-Android.apk
           generate_release_notes: true
+
+      - name: Publish to Play Console (internal track)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          PLAY_PUBLISHER_KEY: ${{ secrets.PLAY_PUBLISHER_KEY }}
+        run: |
+          if [ -z "$PLAY_PUBLISHER_KEY" ]; then
+            echo "PLAY_PUBLISHER_KEY secret not set - skipping Play Console publish."
+            echo "See docs/play-publishing.md for setup."
+            exit 0
+          fi
+          echo "$PLAY_PUBLISHER_KEY" > play-publisher-key.json
+          ./gradlew publishBundle --track internal --no-daemon --stacktrace \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/aprs-net-release.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+          rm -f play-publisher-key.json
