@@ -347,6 +347,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun markRead(call: String) {
         viewModelScope.launch { runCatching { messages.markRead(call) } }
+        uk.aprsnet.client.service.NotificationHelper.clearMessage(getApplication(), call)
     }
 
     // --- contacts ---

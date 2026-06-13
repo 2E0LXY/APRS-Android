@@ -38,8 +38,26 @@ object NotificationHelper {
             NotificationChannel(
                 CHANNEL_SERVICE, "Connection",
                 NotificationManager.IMPORTANCE_LOW
-            ).apply { description = "APRS Net background connection" }
+            ).apply {
+                description = "APRS Net background connection"
+                // The foreground-service notification is permanently "ongoing"
+                // while connected, so a default showBadge=true on this channel
+                // left a launcher notification dot showing 24/7 even with zero
+                // unread messages. Only CHANNEL_MESSAGES should drive the badge.
+                setShowBadge(false)
+            }
         )
+    }
+
+    /**
+     * Cancel the chat-style notification for [callsign], if one is showing.
+     * Called when a thread is marked read in-app (not via the notification's
+     * own auto-cancel), so the launcher badge dot clears immediately.
+     */
+    fun clearMessage(ctx: Context, callsign: String) {
+        runCatching {
+            NotificationManagerCompat.from(ctx).cancel(callsign.hashCode())
+        }
     }
 
     /** The persistent low-priority notification the foreground service runs under. */

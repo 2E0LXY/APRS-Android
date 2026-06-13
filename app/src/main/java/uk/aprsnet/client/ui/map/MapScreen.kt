@@ -89,7 +89,17 @@ fun MapScreen(
     vm: AprsViewModel,
     onSendMessage: (String) -> Unit,
     active: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // True on a "no notification" cold launch - once the first GPS fix
+    // arrives the map re-centres on the user instead of the hardcoded
+    // default centre, then this is consumed via onCentredOnUser().
+    centreOnUserLocation: Boolean = false,
+    onCentredOnUser: () -> Unit = {},
+    // Set when a callsign is tapped in the message thread header - centres
+    // the map on that station and opens its detail dialog, then is
+    // consumed via onFocusConsumed().
+    focusCallsign: String? = null,
+    onFocusConsumed: () -> Unit = {}
 ) {
     val mapState = remember { mutableStateOf<MapView?>(null) }
     val markers = remember { HashMap<String, Marker>() }
@@ -131,6 +141,41 @@ fun MapScreen(
                 }.getOrElse { MapView(ctx) }
             }
         )
+
+        // On a "no notification" cold launch, swap the hardcoded default
+        // centre for the user's own GPS fix as soon as one arrives.
+        LaunchedEffect(centreOnUserLocation, myPos) {
+            if (centreOnUserLocation && myPos != null) {
+                val map = mapState.value
+                val fix = myPos
+                if (map != null && fix != null) {
+                    runCatching {
+                        map.controller.setCenter(GeoPoint(fix.lat, fix.lon))
+                        map.controller.setZoom(12.0)
+                    }
+                    onCentredOnUser()
+                }
+            }
+        }
+
+        // Tapping a callsign in the message thread header navigates here
+        // with focusCallsign set - centre on that station and pop its
+        // detail dialog open, same as tapping its marker would.
+        LaunchedEffect(focusCallsign, stations) {
+            val call = focusCallsign
+            if (call != null) {
+                val st = stations[call]
+                val map = mapState.value
+                if (st != null && map != null) {
+                    runCatching {
+                        map.controller.setCenter(GeoPoint(st.lat, st.lon))
+                        map.controller.setZoom(14.0)
+                    }
+                    selected = st
+                    onFocusConsumed()
+                }
+            }
+        }
 
         // My-location FAB:
         //   tap     - centre map on current GPS fix

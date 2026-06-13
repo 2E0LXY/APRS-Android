@@ -11,6 +11,7 @@ import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -63,6 +64,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.first
 import uk.aprsnet.client.net.AprsWebSocket
 import uk.aprsnet.client.service.AprsService
 import uk.aprsnet.client.service.NotificationHelper
@@ -197,6 +199,12 @@ private fun AppRoot(initialThread: String?) {
         mutableStateOf(if (initialThread != null) Screen.MESSAGES else Screen.MAP)
     }
     var openThread by remember { mutableStateOf(initialThread) }
+    // Tapping a callsign in a message thread sets this and jumps to the
+    // Map tab, which centres on that station and opens its detail dialog.
+    var focusCallsign by remember { mutableStateOf<String?>(null) }
+    // True only for a fresh, non-notification launch: once the first GPS
+    // fix arrives the map re-centres on the user (consumed thereafter).
+    var centreOnUser by remember { mutableStateOf(initialThread == null) }
 
     val ctx = androidx.compose.ui.platform.LocalContext.current
     // One-shot post-install setup dialog: battery exemption + pin to home.
@@ -242,6 +250,16 @@ private fun AppRoot(initialThread: String?) {
         vm.start("", "")
     }
 
+    // Plain icon tap (no notification extras): jump to the message centre
+    // if anything is unread, otherwise leave the user on the map (which
+    // will centre on their own location via centreOnUser, set above).
+    LaunchedEffect(Unit) {
+        if (initialThread == null) {
+            val unreadNow = runCatching { vm.totalUnread.first() }.getOrDefault(0)
+            if (unreadNow > 0) screen = Screen.MESSAGES
+        }
+    }
+
     fun openConversation(call: String) {
         openThread = call
         screen = Screen.MESSAGES
@@ -268,14 +286,29 @@ private fun AppRoot(initialThread: String?) {
                 onBack = {
                     if (screen == Screen.MESSAGES && openThread != null) openThread = null
                     else screen = Screen.MAP
-                }
+                },
+                onTitleClick = if (screen == Screen.MESSAGES && openThread != null) {
+                    {
+                        focusCallsign = openThread
+                        openThread = null
+                        screen = Screen.MAP
+                    }
+                } else null
             )
         }
         Box(modifier = Modifier.weight(1f)) {
             // Always keep MapScreen composed so the osmdroid AndroidView stays
             // in the View hierarchy. Prevents OSM tile layer floating above
             // Compose content after recomposition (AndroidView z-order bug).
-            MapScreen(vm, onSendMessage = { openConversation(it) }, active = screen == Screen.MAP)
+            MapScreen(
+                vm,
+                onSendMessage = { openConversation(it) },
+                active = screen == Screen.MAP,
+                centreOnUserLocation = centreOnUser,
+                onCentredOnUser = { centreOnUser = false },
+                focusCallsign = focusCallsign,
+                onFocusConsumed = { focusCallsign = null }
+            )
             if (screen != Screen.MAP) {
                 Box(Modifier.fillMaxSize().background(BgDeep)) {
                     when (screen) {
@@ -390,7 +423,7 @@ private fun androidx.compose.foundation.layout.RowScope.NavItem(
 }
 
 @Composable
-private fun SimpleBackBar(title: String, onBack: () -> Unit) {
+private fun SimpleBackBar(title: String, onBack: () -> Unit, onTitleClick: (() -> Unit)? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -405,6 +438,17 @@ private fun SimpleBackBar(title: String, onBack: () -> Unit) {
                 tint = Accent
             )
         }
-        Text(title, color = TextHi, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        Text(
+            title,
+            color = TextHi,
+            fontWeight = FontWeight.Bold,
+            fontSize = 17.sp,
+            textDecoration = if (onTitleClick != null)
+                androidx.compose.ui.text.style.TextDecoration.Underline
+            else androidx.compose.ui.text.style.TextDecoration.None,
+            modifier = if (onTitleClick != null)
+                Modifier.clickable(onClick = onTitleClick)
+            else Modifier
+        )
     }
 }

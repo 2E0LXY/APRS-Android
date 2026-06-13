@@ -1,5 +1,9 @@
 package uk.aprsnet.client.ui.common
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -54,6 +58,7 @@ fun StationDetailDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
             androidx.compose.foundation.layout.Row(
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
@@ -67,7 +72,16 @@ fun StationDetailDialog(
                     station.callsign,
                     color = Accent,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+                    fontSize = 18.sp,
+                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                    modifier = Modifier.clickable { openQrz(ctx, station.callsign) }
+                )
+                androidx.compose.foundation.layout.Spacer(Modifier.size(6.dp))
+                Text(
+                    "QRZ \u2197",
+                    color = TextDim,
+                    fontSize = 11.sp,
+                    modifier = Modifier.clickable { openQrz(ctx, station.callsign) }
                 )
             }
         },
@@ -163,6 +177,22 @@ fun StationDetailDialog(
             }
         }
     )
+}
+
+/**
+ * Opens the station's QRZ.com profile in the browser. SSIDs (e.g. -9, -B)
+ * aren't part of the operator's registered callsign on QRZ, so they're
+ * stripped before building the URL.
+ */
+fun openQrz(ctx: Context, callsign: String) {
+    val base = callsign.substringBefore("-").trim()
+    if (base.isEmpty()) return
+    runCatching {
+        ctx.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse("https://www.qrz.com/db/$base"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
 }
 
 private fun ageText(ts: Long): String {
