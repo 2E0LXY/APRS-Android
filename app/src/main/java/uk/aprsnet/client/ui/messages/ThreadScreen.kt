@@ -20,10 +20,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Refresh
@@ -33,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +47,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import uk.aprsnet.client.AprsViewModel
+import uk.aprsnet.client.aprs.KNOWN_NETS
 import uk.aprsnet.client.data.MessageEntity
 import uk.aprsnet.client.model.MessageState
 import uk.aprsnet.client.ui.theme.Accent
@@ -65,6 +71,7 @@ import java.util.Locale
  *   incoming = left, grey
  * Compose bar with a 67-char APRS limit.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadScreen(
     vm: AprsViewModel,
@@ -77,15 +84,38 @@ fun ThreadScreen(
     val recipientIsMember = callsign.uppercase() in members
     val userIsSignedIn    = vm.settings.memberSignedIn
     val canUseDirect      = recipientIsMember && userIsSignedIn
-    // Remembered per callsign: resets to APRS when opening a different thread.
     var useDirect by remember(callsign) { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
-    // mark incoming messages read on open
+    // Nets bottom sheet
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showNetsSheet by remember { mutableStateOf(false) }
+
+    // Unjoin prompt: set to the ANSRVR group name (e.g. "HOTG") when we
+    // detect that the user just sent a CQ to ANSRVR and received an ACK.
+    var pendingUnjoin by remember(callsign) { mutableStateOf<String?>(null) }
+
     LaunchedEffect(callsign) { vm.markRead(callsign) }
-    // keep the newest message in view
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
+    }
+
+    // Detect ANSRVR ACK for unjoin prompt.
+    // When the latest outgoing message was a CQ <GROUP> to ANSRVR and a new
+    // incoming message just arrived from ANSRVR (the ACK), offer one-tap unjoin.
+    LaunchedEffect(messages.size) {
+        if (callsign.uppercase() != "ANSRVR") return@LaunchedEffect
+        val lastOut = messages.lastOrNull { it.outgoing } ?: return@LaunchedEffect
+        val lastIn  = messages.lastOrNull { !it.outgoing } ?: return@LaunchedEffect
+        // Only trigger if the ACK arrived after our outgoing message
+        if (lastIn.timestamp <= lastOut.timestamp) return@LaunchedEffect
+        // Extract group name from "CQ GROUPNAME ..." pattern
+        val cqMatch = Regex("""^CQ\s+(\S+)""", RegexOption.IGNORE_CASE)
+            .find(lastOut.text.trim())
+        if (cqMatch != null && pendingUnjoin == null) {
+            pendingUnjoin = cqMatch.groupValues[1].uppercase()
+        }
     }
 
     uk.aprsnet.client.ui.common.MessageBackground(
@@ -111,8 +141,43 @@ fun ThreadScreen(
             ) }
         }
 
-        // compose bar
-        // Route selector — only visible when both parties are members
+        // ── Unjoin banner ──────────────────────────────────────────────
+        pendingUnjoin?.let { group ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF1A2A1A))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "✅ Checked in to $group — unjoin when done?",
+                    color = Color(0xFF86EFAC), fontSize = 11.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.size(8.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF166534))
+                        .clickable {
+                            vm.send("ANSRVR", "U $group")
+                            pendingUnjoin = null
+                        }
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) { Text("U $group", color = Color(0xFF86EFAC), fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.size(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { pendingUnjoin = null }
+                        .padding(4.dp)
+                ) { Text("✕", color = TextDim, fontSize = 11.sp) }
+            }
+        }
+
+        // ── Route selector ─────────────────────────────────────────────
         if (canUseDirect) {
             Row(
                 modifier = Modifier
@@ -122,28 +187,27 @@ fun ThreadScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Route:", color = TextDim, fontSize = 11.sp)
-                DeliveryChip(
-                    label = "📡 APRS",
-                    selected = !useDirect,
-                    onClick  = { useDirect = false }
-                )
-                DeliveryChip(
-                    label = "↗ Direct",
-                    selected = useDirect,
-                    onClick  = { useDirect = true },
-                    activeColour = Color(0xFF0D9488)
-                )
-                if (useDirect) {
-                    Text("no RF", color = TextDim, fontSize = 10.sp)
-                }
+                DeliveryChip(label = "📡 APRS", selected = !useDirect, onClick = { useDirect = false })
+                DeliveryChip(label = "↗ Direct", selected = useDirect, onClick = { useDirect = true }, activeColour = Color(0xFF0D9488))
+                if (useDirect) Text("no RF", color = TextDim, fontSize = 10.sp)
             }
         }
+
+        // ── Compose row ────────────────────────────────────────────────
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Nets button — only meaningful when in ANSRVR / net conversations
+            // but shown in all threads as a quick-compose shortcut
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0D2137))
+                    .clickable { showNetsSheet = true }
+                    .padding(horizontal = 8.dp, vertical = 10.dp)
+            ) { Text("📡", fontSize = 16.sp) }
+            Spacer(Modifier.size(6.dp))
             OutlinedTextField(
                 value = draft,
                 onValueChange = { if (it.length <= 67) draft = it },
@@ -163,24 +227,72 @@ fun ThreadScreen(
                     }
                 }
             ) {
-                Icon(
-                    Icons.Default.Send,
-                    contentDescription = "Send",
-                    // Tint amber when in direct mode so the user has
-                    // a persistent visual reminder of the active route.
-                    tint = if (useDirect) Color(0xFF0D9488) else Accent
-                )
+                Icon(Icons.Default.Send, contentDescription = "Send",
+                    tint = if (useDirect) Color(0xFF0D9488) else Accent)
             }
         }
-        Text(
-            "${draft.length} / 67",
-            color = TextDim,
-            fontSize = 10.sp,
-            modifier = Modifier
-                .align(Alignment.End)
-                .padding(end = 16.dp, bottom = 4.dp)
-        )
+        Text("${draft.length} / 67", color = TextDim, fontSize = 10.sp,
+            modifier = Modifier.align(Alignment.End).padding(end = 16.dp, bottom = 4.dp))
       }
+    }
+
+    // ── Nets bottom sheet ──────────────────────────────────────────────────
+    if (showNetsSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showNetsSheet = false },
+            sheetState = sheetState,
+            containerColor = Color(0xFF0B1526)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("📡 Net Quick Check-in",
+                    color = Accent, fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                    modifier = Modifier.padding(bottom = 4.dp))
+                Text("Tap a net to pre-fill the compose bar. Add your message then send.",
+                    color = TextDim, fontSize = 11.sp,
+                    modifier = Modifier.padding(bottom = 16.dp))
+                KNOWN_NETS.forEach { net ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF0D2137))
+                            .clickable {
+                                // Navigate to the correct conversation if needed,
+                                // then pre-fill the draft with the body prefix.
+                                // Since we can't navigate from here, we pre-fill
+                                // the draft (user may already be in the right thread;
+                                // if not, the ConversationList will open via main nav).
+                                draft = net.bodyPrefix
+                                scope.launch { sheetState.hide() }
+                                showNetsSheet = false
+                            }
+                            .padding(12.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(net.name, color = Color(0xFF38BDF8),
+                                    fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                                    modifier = Modifier.weight(1f))
+                                Text("→ ${net.destination}", color = Accent,
+                                    fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(net.schedule, color = TextDim, fontSize = 10.sp,
+                                modifier = Modifier.padding(top = 2.dp))
+                            Text("\"${net.bodyPrefix}…\"",
+                                color = Color(0xFF86EFAC), fontSize = 11.sp,
+                                modifier = Modifier.padding(top = 4.dp))
+                            if (net.ansrvrGroup != null) {
+                                Text("Auto-unjoin prompt after ACK",
+                                    color = TextDim, fontSize = 10.sp,
+                                    modifier = Modifier.padding(top = 2.dp))
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.size(24.dp))
+            }
+        }
     }
 }
 
