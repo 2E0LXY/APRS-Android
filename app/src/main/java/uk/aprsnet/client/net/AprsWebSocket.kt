@@ -57,6 +57,12 @@ class AprsWebSocket {
     val memberSyncPrefs = MutableSharedFlow<JSONObject>(extraBufferCapacity = 8)
 
     /**
+     * Emits the full JSONArray of alert rules whenever another device creates
+     * or deletes a geo-fence rule (server pushes geo_fence_sync).
+     */
+    val geoFenceSync = MutableSharedFlow<org.json.JSONArray>(extraBufferCapacity = 4)
+
+    /**
      * Emits Unit each time authentication succeeds (including on reconnect).
      * Collectors use this to trigger a server-side message history sync.
      */
@@ -142,6 +148,12 @@ class AprsWebSocket {
                     "member_sync" -> {
                         // Another device updated preferences — apply them here.
                         o.optJSONObject("data")?.let { memberSyncPrefs.tryEmit(it) }
+                    }
+                    "geo_fence_sync" -> {
+                        // Another device created or deleted a geo-fence rule.
+                        // The server pushes the full updated rule list; refresh.
+                        val arr = o.optJSONArray("data") ?: org.json.JSONArray()
+                        geoFenceSync.tryEmit(arr)
                     }
                 }
             } catch (_: Exception) { /* ignore malformed */ }

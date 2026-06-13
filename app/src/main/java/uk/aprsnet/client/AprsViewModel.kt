@@ -179,6 +179,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         ws.connect()
         startBeaconingIfPermitted()
         startSyncListeners()
+        startGeoFenceSyncListener()
     }
 
     /**
@@ -374,6 +375,35 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         val token = settings.memberToken; if (token.isNullOrEmpty()) return
         viewModelScope.launch {
             runCatching { _alertRules.value = AprsApi.getAlertRules(token) }
+        }
+    }
+
+    private fun startGeoFenceSyncListener() {
+        viewModelScope.launch {
+            // Reload rules on every WS re-auth so the list is fresh after
+            // reconnect (catches changes made on the web while offline).
+            ws.onAuthed.collect { loadAlertRules() }
+        }
+        viewModelScope.launch {
+            // Another device created/deleted a rule — server pushes the full
+            // updated list via geo_fence_sync; apply it immediately.
+            ws.geoFenceSync.collect { arr ->
+                runCatching {
+                    val updated = (0 until arr.length()).mapNotNull { i ->
+                        val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                        uk.aprsnet.client.model.AlertRule(
+                            id             = o.optLong("id"),
+                            type           = o.optString("type"),
+                            watchCallsign  = o.optString("watch_callsign", "*"),
+                            lat            = o.optDouble("lat"),
+                            lon            = o.optDouble("lon"),
+                            radiusMi       = o.optDouble("radius_mi", 10.0),
+                            name           = o.optString("name", "")
+                        )
+                    }
+                    _alertRules.value = updated
+                }
+            }
         }
     }
 
