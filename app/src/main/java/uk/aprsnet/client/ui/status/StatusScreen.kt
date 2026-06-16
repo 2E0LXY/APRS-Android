@@ -1,18 +1,17 @@
 package uk.aprsnet.client.ui.status
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,8 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uk.aprsnet.client.AprsViewModel
-import uk.aprsnet.client.net.BleKissManager
 import uk.aprsnet.client.net.AprsWebSocket
+import uk.aprsnet.client.net.BleKissManager
 import uk.aprsnet.client.ui.common.GlassCard
 import uk.aprsnet.client.ui.common.RingProgress
 import uk.aprsnet.client.ui.theme.Accent
@@ -38,17 +37,19 @@ import uk.aprsnet.client.ui.theme.TextDim
 
 /**
  * Server status + connection + station counts.
- * v2.3: three gradient-stroked ring gauges across the top, plus a card for
- * connection state and another for the beacon state so the user can see at
- * a glance whether their position is being transmitted.
+ * v2.3: three gradient-stroked ring gauges across the top.
+ * v2.7: added BLE Radio card for RT-950 Pro connection status + control.
  */
 @Composable
 fun StatusScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
-    val status by vm.status.collectAsState()
-    val conn by vm.connState.collectAsState()
-    val stations by vm.stations.collectAsState()
+    val status      by vm.status.collectAsState()
+    val conn        by vm.connState.collectAsState()
+    val stations    by vm.stations.collectAsState()
     val lastBeaconAt by vm.beacon.lastBeaconAt.collectAsState()
-    val myFix by vm.myPosition.collectAsState()
+    val myFix       by vm.myPosition.collectAsState()
+    val bleState    by vm.ble.state.collectAsState()
+    val blePktCnt   by vm.ble.pktCount.collectAsState()
+    val bleDevName  by vm.ble.deviceName.collectAsState()
 
     Column(
         modifier = modifier
@@ -148,32 +149,15 @@ fun StatusScreen(vm: AprsViewModel, modifier: Modifier = Modifier) {
                 StatRow("Server stations", s.stations.toString())
             }
         }
-    }
-}
 
-@Composable
-private fun StatRow(
-    label: String,
-    value: String,
-    valueColour: androidx.compose.ui.graphics.Color = TextBase
-) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-        Text(label, color = TextDim, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Text(value, color = valueColour, fontSize = 13.sp,
-            fontWeight = FontWeight.Bold)
-
-        // --- BLE Radio (RT-950 Pro / KISS BLE) --------------------------------
-        val bleState   by vm.ble.state.collectAsState()
-        val blePktCnt  by vm.ble.pktCount.collectAsState()
-        val bleDevName by vm.ble.deviceName.collectAsState()
-
+        // --- BLE radio -------------------------------------------------
         GlassCard(title = "BLE Radio") {
             StatRow(
                 label = "Status",
                 value = when (bleState) {
                     BleKissManager.BleState.CONNECTED    -> bleDevName ?: "Connected"
-                    BleKissManager.BleState.CONNECTING   -> "Connecting\u2026"
-                    BleKissManager.BleState.SCANNING     -> "Scanning\u2026"
+                    BleKissManager.BleState.CONNECTING   -> "Connecting…"
+                    BleKissManager.BleState.SCANNING     -> "Scanning…"
                     BleKissManager.BleState.DISCONNECTED -> "Not connected"
                 },
                 valueColour = when (bleState) {
@@ -196,16 +180,32 @@ private fun StatRow(
                         Accent else Err
                 )
             ) {
-                Text(if (bleState == BleKissManager.BleState.DISCONNECTED) "Connect BLE Radio" else "Disconnect")
+                Text(
+                    if (bleState == BleKissManager.BleState.DISCONNECTED)
+                        "Connect BLE Radio" else "Disconnect"
+                )
             }
             if (!vm.ble.hasPermissions()) {
                 Text(
-                    "Bluetooth permissions required \u2014 grant in device settings.",
+                    "Bluetooth permissions required — grant in device settings.",
                     color = AccentAmber, fontSize = 11.sp,
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StatRow(
+    label: String,
+    value: String,
+    valueColour: androidx.compose.ui.graphics.Color = TextBase
+) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+        Text(label, color = TextDim, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Text(value, color = valueColour, fontSize = 13.sp,
+            fontWeight = FontWeight.Bold)
     }
 }
 
