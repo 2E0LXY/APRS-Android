@@ -199,8 +199,9 @@ class BleKissManager(private val appCtx: Context) {
 
         // API < 33
         @Suppress("DEPRECATION")
-        override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic) =
+        override fun onCharacteristicChanged(g: BluetoothGatt, ch: BluetoothGattCharacteristic) {
             processBytes(ch.value ?: return)
+        }
     }
 
     // ── KISS + AX.25 decoding ────────────────────────────────────────────────
