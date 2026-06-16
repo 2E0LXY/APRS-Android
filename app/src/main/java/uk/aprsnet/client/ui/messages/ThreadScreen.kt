@@ -177,20 +177,31 @@ fun ThreadScreen(
             }
         }
 
-        // ── Route selector ─────────────────────────────────────────────
-        if (canUseDirect) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Route:", color = TextDim, fontSize = 11.sp)
-                DeliveryChip(label = "📡 APRS", selected = !useDirect, onClick = { useDirect = false })
-                DeliveryChip(label = "↗ Direct", selected = useDirect, onClick = { useDirect = true }, activeColour = Color(0xFF0D9488))
-                if (useDirect) Text("no RF", color = TextDim, fontSize = 10.sp)
-            }
+        // ── Route selector: always shown; Direct greyed when not eligible ──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Route:", color = TextDim, fontSize = 11.sp)
+            DeliveryChip(label = "📡 APRS", selected = !useDirect, onClick = { useDirect = false })
+            DeliveryChip(
+                label = "↗ Direct",
+                selected = useDirect && canUseDirect,
+                onClick = { if (canUseDirect) useDirect = true },
+                activeColour = Color(0xFF0D9488)
+            )
+            Text(
+                when {
+                    !canUseDirect && !userIsSignedIn -> "sign in for direct"
+                    !canUseDirect -> "recipient not a member"
+                    useDirect     -> "no RF"
+                    else          -> ""
+                },
+                color = TextDim, fontSize = 10.sp
+            )
         }
 
         // ── Compose row ────────────────────────────────────────────────
