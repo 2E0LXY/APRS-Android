@@ -1,6 +1,11 @@
 package uk.aprsnet.client.ui.status
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uk.aprsnet.client.AprsViewModel
+import uk.aprsnet.client.net.BleKissManager
 import uk.aprsnet.client.net.AprsWebSocket
 import uk.aprsnet.client.ui.common.GlassCard
 import uk.aprsnet.client.ui.common.RingProgress
@@ -155,6 +161,51 @@ private fun StatRow(
         Text(label, color = TextDim, fontSize = 13.sp, modifier = Modifier.weight(1f))
         Text(value, color = valueColour, fontSize = 13.sp,
             fontWeight = FontWeight.Bold)
+
+        // --- BLE Radio (RT-950 Pro / KISS BLE) --------------------------------
+        val bleState   by vm.ble.state.collectAsState()
+        val blePktCnt  by vm.ble.pktCount.collectAsState()
+        val bleDevName by vm.ble.deviceName.collectAsState()
+
+        GlassCard(title = "BLE Radio") {
+            StatRow(
+                label = "Status",
+                value = when (bleState) {
+                    BleKissManager.BleState.CONNECTED    -> bleDevName ?: "Connected"
+                    BleKissManager.BleState.CONNECTING   -> "Connecting\u2026"
+                    BleKissManager.BleState.SCANNING     -> "Scanning\u2026"
+                    BleKissManager.BleState.DISCONNECTED -> "Not connected"
+                },
+                valueColour = when (bleState) {
+                    BleKissManager.BleState.CONNECTED    -> Ok
+                    BleKissManager.BleState.DISCONNECTED -> TextDim
+                    else                                 -> AccentAmber
+                }
+            )
+            if (bleState == BleKissManager.BleState.CONNECTED) {
+                StatRow("Packets", blePktCnt.toString(), valueColour = Accent)
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    if (bleState == BleKissManager.BleState.DISCONNECTED) vm.startBle()
+                    else vm.stopBle()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (bleState == BleKissManager.BleState.DISCONNECTED)
+                        Accent else Err
+                )
+            ) {
+                Text(if (bleState == BleKissManager.BleState.DISCONNECTED) "Connect BLE Radio" else "Disconnect")
+            }
+            if (!vm.ble.hasPermissions()) {
+                Text(
+                    "Bluetooth permissions required \u2014 grant in device settings.",
+                    color = AccentAmber, fontSize = 11.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
     }
 }
 
