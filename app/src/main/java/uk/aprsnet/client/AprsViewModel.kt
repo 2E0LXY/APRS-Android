@@ -25,6 +25,7 @@ import uk.aprsnet.client.location.LocationProvider
 import uk.aprsnet.client.model.Station
 import uk.aprsnet.client.model.StationType
 import uk.aprsnet.client.net.AisWebSocket
+import uk.aprsnet.client.net.BleKissManager
 import uk.aprsnet.client.net.AprsApi
 import uk.aprsnet.client.net.AprsWebSocket
 
@@ -37,7 +38,8 @@ import uk.aprsnet.client.net.AprsWebSocket
  */
 class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
-    val ws = AprsWebSocket()
+    val ws  = AprsWebSocket()
+    val ble  = BleKissManager(app)
     private var aisWs: AisWebSocket? = null
 
     private val db = AppDatabase.get(app)
@@ -113,6 +115,21 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
+        // BLE radio feed — same packet pipeline as WebSocket
+        viewModelScope.launch {
+            ble.rawPackets.collect { raw ->
+                when (val p = PacketParser.parse(raw)) {
+                    is PacketParser.Parsed.Pos ->
+                        _stations.value = _stations.value + (p.station.callsign to p.station)
+                    is PacketParser.Parsed.Msg -> {
+                        val incoming = messages.handleIncoming(raw)
+                        if (incoming != null) incomingMessages.tryEmit(incoming)
+                    }
+                    else -> {}
+                }
+            }
+        }
+
         viewModelScope.launch {
             while (true) {
                 delay(30_000)
@@ -451,10 +468,20 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { messages.sendViaServer(rowId, token) }
     }
 
+    /** Start scanning for a BLE KISS radio. Requires BLE permissions. */
+    fun startBle() {
+        if (!ble.hasPermissions()) return
+        ble.scan()
+    }
+
+    /** Disconnect from the BLE radio and stop auto-reconnect. */
+    fun stopBle() = ble.disconnect()
+
     override fun onCleared() {
         beacon.stop()
         ws.disconnect()
         aisWs?.disconnect()
+        ble.disconnect()
         super.onCleared()
     }
 }
