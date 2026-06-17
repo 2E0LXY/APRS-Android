@@ -232,6 +232,12 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                 if (prefs.has("msg_background")) {
                     settings.messageBackgroundId = prefs.optInt("msg_background", settings.messageBackgroundId)
                 }
+                if (prefs.has("bubble_colour")) {
+                    settings.bubbleColourId = prefs.optInt("bubble_colour", settings.bubbleColourId)
+                }
+                if (prefs.has("incoming_bubble_colour")) {
+                    settings.incomingBubbleColourId = prefs.optInt("incoming_bubble_colour", settings.incomingBubbleColourId)
+                }
                 tickFilters()
             }
         }
@@ -286,9 +292,9 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
             settings.dropPistar = prefs.optBoolean("drop_pistar", settings.dropPistar)
             settings.dropDstar  = prefs.optBoolean("drop_dstar",  settings.dropDstar)
             settings.dropApdesk = prefs.optBoolean("drop_apdesk", settings.dropApdesk)
-            if (prefs.has("msg_background")) {
-                settings.messageBackgroundId = prefs.optInt("msg_background", settings.messageBackgroundId)
-            }
+            if (prefs.has("msg_background"))         settings.messageBackgroundId    = prefs.optInt("msg_background", settings.messageBackgroundId)
+            if (prefs.has("bubble_colour"))           settings.bubbleColourId         = prefs.optInt("bubble_colour", settings.bubbleColourId)
+            if (prefs.has("incoming_bubble_colour"))  settings.incomingBubbleColourId = prefs.optInt("incoming_bubble_colour", settings.incomingBubbleColourId)
             tickFilters()
         }
         return null
@@ -305,10 +311,12 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         if (token.isNullOrEmpty()) return
         viewModelScope.launch {
             val prefs = org.json.JSONObject().apply {
-                put("drop_pistar",     settings.dropPistar)
-                put("drop_dstar",      settings.dropDstar)
-                put("drop_apdesk",     settings.dropApdesk)
-                put("msg_background",  settings.messageBackgroundId)
+                put("drop_pistar",            settings.dropPistar)
+                put("drop_dstar",             settings.dropDstar)
+                put("drop_apdesk",            settings.dropApdesk)
+                put("msg_background",         settings.messageBackgroundId)
+                put("bubble_colour",          settings.bubbleColourId)
+                put("incoming_bubble_colour", settings.incomingBubbleColourId)
             }
             AprsApi.memberPreferencesSet(token, prefs)
         }
