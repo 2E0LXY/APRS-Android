@@ -14,6 +14,9 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- Android Auto: declared as optional so phone-only install is unaffected -->
+    <uses-feature android:name="android.hardware.type.automotive" android:required="false" />
+
     <!-- BLE radio (RT-950 Pro / KISS BLE) - API 31+ granular -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
@@ -30,6 +33,21 @@
         android:label="APRS Net"
         android:supportsRtl="true"
         android:theme="@style/Theme.AprsNet">
+
+        <!-- Android Auto: points to res/xml/automotive_app_desc.xml -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
+        <!-- Android Auto: Car App Library entry point -->
+        <service
+            android:name=".auto.AprsCarAppService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.MESSAGING" />
+            </intent-filter>
+        </service>
 
         <activity
             android:name=".MainActivity"
