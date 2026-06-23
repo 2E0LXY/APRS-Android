@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Declares this app uses the Car App Library template API (messaging category).
+    Required by Android Auto / AAOS for apps that embed a CarAppService.
+-->
+<automotiveApp>
+    <uses name="template" />
+</automotiveApp>
