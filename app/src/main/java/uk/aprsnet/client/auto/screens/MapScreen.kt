@@ -67,17 +67,6 @@ class MapScreen(carContext: CarContext) : Screen(carContext), SurfaceCallback {
         renderMap()
     }
 
-    override fun onSurfaceScroll(distanceX: Float, distanceY: Float) {
-        isTracking = false
-        renderer.pan(distanceX, distanceY)
-        renderMap()
-    }
-
-    override fun onSurfaceScale(focusX: Float, focusY: Float, scaleFactor: Float) {
-        renderer.zoom(scaleFactor, focusX, focusY)
-        renderMap()
-    }
-
     // ─── Template ────────────────────────────────────────────────────────────
 
     override fun onGetTemplate(): Template {
