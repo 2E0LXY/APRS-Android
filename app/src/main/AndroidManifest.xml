@@ -42,7 +42,8 @@
         <!-- Android Auto: Car App Library entry point -->
         <service
             android:name=".auto.AprsCarAppService"
-            android:exported="true">
+            android:exported="true"
+            android:permission="androidx.car.app.CarAppService">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
                 <category android:name="androidx.car.app.category.MESSAGING" />
