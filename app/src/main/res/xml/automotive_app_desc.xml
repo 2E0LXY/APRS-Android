@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Declares this app uses the Car App Library template API (messaging category).
-    Required by Android Auto / AAOS for apps that embed a CarAppService.
+    template  = Car App Library in-app screens (CarAppService / CarSession)
+    notification = MessagingStyle inline-reply via notification (RemoteInput)
+    Both are needed for a full messaging experience in Android Auto.
 -->
 <automotiveApp>
-    <uses name="template" />
+    <uses name="template"/>
+    <uses name="notification"/>
 </automotiveApp>
