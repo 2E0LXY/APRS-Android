@@ -25,8 +25,8 @@ android {
         applicationId = "uk.aprsnet.client"
         minSdk = 26
         targetSdk = 35
-        versionCode = 44
-        versionName = "2.8.0"
+        versionCode = 45
+        versionName = "2.9.0"
     }
 
     buildTypes {
@@ -54,7 +54,7 @@ android {
 }
 
 dependencies {
-    // Android Auto — Car App Library (messaging category)
+    // Android Auto — Car App Library (navigation category + full map/template set)
     implementation("androidx.car.app:app:1.4.0")
 
     // Compose
