@@ -212,6 +212,7 @@ private fun AppRoot(initialThread: String?) {
     var showSetup by remember {
         mutableStateOf(!vm.settings.hasShownSetup)
     }
+    var showBgLocationDisclosure by remember { mutableStateOf(false) }
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
@@ -228,9 +229,8 @@ private fun AppRoot(initialThread: String?) {
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
                 != PackageManager.PERMISSION_GRANTED
         ) {
-            (ctx as? MainActivity)?.requestPermissions(
-                arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 4242
-            )
+            // Show mandatory prominent disclosure before requesting background location
+            showBgLocationDisclosure = true
         }
     }
     LaunchedEffect(Unit) {
@@ -389,6 +389,69 @@ private fun AppRoot(initialThread: String?) {
                             vm.settings.hasShownSetup = true
                             showSetup = false
                         }) { Text("Done") }
+                    }
+                }
+            )
+        }
+
+        // ── Mandatory prominent disclosure — ACCESS_BACKGROUND_LOCATION ──────
+        // Google Play policy requires this full-interstitial disclosure to be
+        // shown BEFORE the system permission prompt for background location.
+        // It must name the feature, the data collected, and why it is needed.
+        if (showBgLocationDisclosure) {
+            AlertDialog(
+                onDismissRequest = { showBgLocationDisclosure = false },
+                title = {
+                    Text(
+                        "Background location — APRS SmartBeacon",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            "APRS Net accesses your precise location in the background to run SmartBeacon.",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            "SmartBeacon automatically transmits your GPS position to the APRS-IS " +
+                            "amateur radio network at adaptive intervals — more often when moving, " +
+                            "less often when stationary. This continues while the app is in the " +
+                            "background so your track remains visible to other licensed amateur " +
+                            "radio operators on aprs.fi and APRS clients worldwide.",
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            "Location data is sent as standard APRS position packets over the " +
+                            "public APRS-IS network. No location data is stored on APRS Net servers. " +
+                            "Background location is only used when SmartBeacon or Fixed beaconing " +
+                            "is enabled in Settings.",
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            "On the next screen, tap \"Allow all the time\" to enable background beaconing.",
+                            fontSize = 13.sp,
+                            color = Accent
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showBgLocationDisclosure = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            (ctx as? MainActivity)?.requestPermissions(
+                                arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 4242
+                            )
+                        }
+                    }) { Text("Continue") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showBgLocationDisclosure = false }) {
+                        Text("Not now")
                     }
                 }
             )
