@@ -25,8 +25,8 @@ android {
         applicationId = "uk.aprsnet.client"
         minSdk = 26
         targetSdk = 35
-        versionCode = 50
-        versionName = "2.9.5"
+        versionCode = 51
+        versionName = "2.9.6"
     }
 
     buildTypes {
@@ -82,6 +82,12 @@ dependencies {
 
     // Location
     implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    // Wear OS — Data Layer (phone side)
+    implementation("com.google.android.gms:play-services-wearable:18.2.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+    // Package the watch APK inside the phone APK
+    wearApp(project(":wear"))
 
     // Room (persistence - messages, contacts, stations)
     implementation("androidx.room:room-runtime:2.6.1")
