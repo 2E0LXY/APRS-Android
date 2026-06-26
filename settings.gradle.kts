@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "APRS Net"
 include(":app")
+include(":wear")
