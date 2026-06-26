@@ -152,6 +152,26 @@ class SettingsStore(context: Context) {
         set(v) = prefs.edit().putBoolean("drop_apdesk", v).apply()
 
     /**
+     * Per-callsign hide list — stations the user has explicitly hidden from
+     * the map and stations list. Stored as a StringSet; synced to the server
+     * alongside category filters so the list is consistent across devices.
+     */
+    var hiddenCallsigns: Set<String>
+        get() = prefs.getStringSet("hidden_callsigns", emptySet()) ?: emptySet()
+        set(v) = prefs.edit().putStringSet("hidden_callsigns", v).apply()
+
+    fun hideCallsign(callsign: String) {
+        hiddenCallsigns = hiddenCallsigns + callsign.trim().uppercase()
+    }
+
+    fun unhideCallsign(callsign: String) {
+        hiddenCallsigns = hiddenCallsigns - callsign.trim().uppercase()
+    }
+
+    fun isHidden(callsign: String): Boolean =
+        callsign.trim().uppercase() in hiddenCallsigns
+
+    /**
      * One-shot flag: true once we have presented the post-install setup
      * dialog (battery exemption + pin-to-home-screen). Suppresses the
      * dialog from popping up again on every cold start.
