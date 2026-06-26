@@ -30,7 +30,7 @@ class AprsWebSocket {
     enum class ConnState { DISCONNECTED, CONNECTING, CONNECTED, AUTHED }
 
     private val client = OkHttpClient.Builder()
-        .pingInterval(20, TimeUnit.SECONDS)
+        .pingInterval(45, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
 
