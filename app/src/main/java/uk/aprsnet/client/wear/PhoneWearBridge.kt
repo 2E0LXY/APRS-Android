@@ -25,14 +25,39 @@ private const val PATH_MESSAGES = "/aprs/messages"
  */
 object PhoneWearBridge {
 
+    private const val THROTTLE_MS = 30 * 60 * 1000L   // 30 minutes
+
+    // Last push timestamp per data path
+    @Volatile private var lastStatusPushMs   = 0L
+    @Volatile private var lastStationsPushMs = 0L
+    @Volatile private var lastMessagesPushMs = 0L
+
+    /**
+     * Call this when a forced refresh is requested from the watch.
+     * Resets all throttle timestamps so the next push goes through immediately.
+     */
+    fun requestRefresh() {
+        lastStatusPushMs   = 0L
+        lastStationsPushMs = 0L
+        lastMessagesPushMs = 0L
+    }
+
+    /** True if enough time has passed since [last] to justify a push. */
+    private fun shouldPush(last: Long, force: Boolean) =
+        force || System.currentTimeMillis() - last >= THROTTLE_MS
+
     suspend fun pushStatus(
         context: Context,
         connected: Boolean,
         stationCount: Int,
         lastBeaconTs: Long,
         settings: SettingsStore,
-        fix: Fix?
-    ) = putData(context, PATH_STATUS, JSONObject().apply {
+        fix: Fix?,
+        force: Boolean = false
+    ) {
+        if (!shouldPush(lastStatusPushMs, force)) return
+        lastStatusPushMs = System.currentTimeMillis()
+        putData(context, PATH_STATUS, JSONObject().apply {
         put("connected",    connected)
         put("stationCount", stationCount)
         put("lastBeaconTs", lastBeaconTs)
@@ -42,8 +67,11 @@ object PhoneWearBridge {
         put("speedKmh",     fix?.speedKmh ?: 0.0)
         put("course",       fix?.course?.takeIf { it >= 0 } ?: 0)
     }.toString())
+    }
 
-    suspend fun pushStations(context: Context, stations: List<uk.aprsnet.client.auto.AutoDataBridge.StationData>, myLat: Double, myLon: Double) {
+    suspend fun pushStations(context: Context, stations: List<uk.aprsnet.client.auto.AutoDataBridge.StationData>, myLat: Double, myLon: Double, force: Boolean = false) {
+        if (!shouldPush(lastStationsPushMs, force)) return
+        lastStationsPushMs = System.currentTimeMillis()
         val arr = JSONArray()
         stations.take(20).forEach { s ->
             arr.put(JSONObject().apply {
@@ -60,7 +88,9 @@ object PhoneWearBridge {
         putData(context, PATH_STATIONS, arr.toString())
     }
 
-    suspend fun pushMessages(context: Context, messages: List<uk.aprsnet.client.data.MessageEntity>, myCallsign: String) {
+    suspend fun pushMessages(context: Context, messages: List<uk.aprsnet.client.data.MessageEntity>, myCallsign: String, force: Boolean = false) {
+        if (!shouldPush(lastMessagesPushMs, force)) return
+        lastMessagesPushMs = System.currentTimeMillis()
         val arr = JSONArray()
         messages
             .filter { it.remoteCall.isNotBlank() }
