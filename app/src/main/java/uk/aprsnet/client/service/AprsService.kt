@@ -70,7 +70,7 @@ class AprsService : Service() {
         // retry sweep
         scope.launch {
             while (true) {
-                kotlinx.coroutines.delay(30_000)
+                kotlinx.coroutines.delay(90_000)
                 runCatching { repo.retrySweep() }
             }
         }
