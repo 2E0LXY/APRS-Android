@@ -160,6 +160,27 @@ class SettingsStore(context: Context) {
         get() = prefs.getStringSet("hidden_callsigns", emptySet()) ?: emptySet()
         set(v) = prefs.edit().putStringSet("hidden_callsigns", v).apply()
 
+    /**
+     * Tombstone set for conversations the user has explicitly deleted.
+     * Prevents syncFromServer() from resurrecting them on reconnect.
+     * Cleared for a given callsign when the user sends a new message to them,
+     * which signals intent to start a fresh conversation.
+     */
+    var deletedConversations: Set<String>
+        get() = prefs.getStringSet("deleted_convos", emptySet()) ?: emptySet()
+        set(v) = prefs.edit().putStringSet("deleted_convos", v).apply()
+
+    fun tombstoneConversation(callsign: String) {
+        deletedConversations = deletedConversations + callsign.trim().uppercase()
+    }
+
+    fun clearTombstone(callsign: String) {
+        deletedConversations = deletedConversations - callsign.trim().uppercase()
+    }
+
+    fun isTombstoned(callsign: String): Boolean =
+        callsign.trim().uppercase() in deletedConversations
+
     fun hideCallsign(callsign: String) {
         hiddenCallsigns = hiddenCallsigns + callsign.trim().uppercase()
     }
