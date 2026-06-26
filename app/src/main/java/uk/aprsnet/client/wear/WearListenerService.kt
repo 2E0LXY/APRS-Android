@@ -8,10 +8,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import uk.aprsnet.client.auto.AutoDataBridge
+import uk.aprsnet.client.wear.PhoneWearBridge
 
 private const val TAG = "WearListenerService"
-private const val MSG_BEACON = "/aprs/beacon/now"
-private const val MSG_SEND   = "/aprs/message/send"
+private const val MSG_BEACON  = "/aprs/beacon/now"
+private const val MSG_SEND    = "/aprs/message/send"
+private const val MSG_REFRESH = "/aprs/refresh"
 
 /**
  * Receives messages from the Wear OS app and dispatches them to the phone app.
@@ -26,6 +28,12 @@ class WearListenerService : WearableListenerService() {
                 MSG_BEACON -> {
                     AutoDataBridge.onBeaconNow?.invoke()
                     Log.i(TAG, "Beacon triggered from watch")
+                }
+                MSG_REFRESH -> {
+                    // Watch tapped Refresh — reset throttle so next scheduled
+                    // push from AprsViewModel goes through immediately
+                    PhoneWearBridge.requestRefresh()
+                    Log.i(TAG, "Refresh requested from watch")
                 }
                 MSG_SEND -> {
                     val json = String(event.data)
