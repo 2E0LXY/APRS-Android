@@ -193,21 +193,35 @@ class MessageRepository(
      * Deduplication: skips entries whose serverMsgId is already present for
      * the same remote callsign.
      */
-    suspend fun syncFromServer(serverMessages: org.json.JSONArray) {
+    /**
+     * Merge the server-side message history into the local Room database.
+     *
+     * [deletedConversations] is the tombstone set from SettingsStore. Any
+     * message whose remote callsign is tombstoned is skipped — this prevents
+     * a conversation the user deleted from being resurrected on reconnect.
+     */
+    suspend fun syncFromServer(
+        serverMessages: org.json.JSONArray,
+        deletedConversations: Set<String> = emptySet()
+    ) {
         val me = myCallsign.uppercase()
         for (i in 0 until serverMessages.length()) {
             val obj = serverMessages.optJSONObject(i) ?: continue
-            val from = obj.optString("from").uppercase()
-            val to   = obj.optString("to").uppercase()
-            val text = obj.optString("text")
-            val ts   = obj.optLong("ts", 0L) * 1000L // server stores seconds
-            val dir  = obj.optString("direction", "in")   // "in" | "out"
+            val from  = obj.optString("from").uppercase()
+            val to    = obj.optString("to").uppercase()
+            val text  = obj.optString("text")
+            val ts    = obj.optLong("ts", 0L) * 1000L
+            val dir   = obj.optString("direction", "in")
             val msgId = obj.optString("id").takeIf { it.isNotEmpty() }
 
             val outgoing = (dir == "out") ||
                            (from.substringBefore("-") == me.substringBefore("-"))
             val remote = if (outgoing) to else from
 
+            // Skip tombstoned conversations — user deleted them locally
+            if (remote in deletedConversations) continue
+
+            // Skip true duplicates (already synced from a previous session)
             if (msgId != null && dao.findByServerId(msgId, remote) != null) continue
 
             dao.insertIfAbsent(
