@@ -38,16 +38,44 @@ class BeaconManager(
 
     private var started = false
 
+    // ── Motion state tracking for adaptive GPS ────────────────────────────────
+    private val STATIONARY_SPEED_KMH = 1.0
+    private val MOVING_SPEED_KMH     = 5.0
+    /** Millis at which speed first dropped below STATIONARY_SPEED_KMH. */
+    private var stationarySince = 0L
+    /** Delay before committing to STATIONARY to avoid false positives at traffic lights. */
+    private val STATIONARY_CONFIRM_MS = 60_000L
+
+    private fun motionStateFor(fix: Fix): MotionState = when {
+        fix.speedKmh >= MOVING_SPEED_KMH -> {
+            stationarySince = 0L
+            MotionState.MOVING
+        }
+        fix.speedKmh >= STATIONARY_SPEED_KMH -> {
+            stationarySince = 0L
+            MotionState.SLOW
+        }
+        else -> {
+            if (stationarySince == 0L) stationarySince = System.currentTimeMillis()
+            if (System.currentTimeMillis() - stationarySince >= STATIONARY_CONFIRM_MS)
+                MotionState.STATIONARY
+            else
+                MotionState.SLOW
+        }
+    }
+
     /** Begin observing fixes. Caller ensures location permission is held. */
     fun start(scope: CoroutineScope) {
         if (started) return
         started = true
         smartBeacon = buildSmartBeacon()
+        stationarySince = 0L
         location.start()
         scope.launch {
             location.lastFix.collect { fix ->
                 if (fix == null) return@collect
                 _myPosition.value = fix
+                location.setMotionState(motionStateFor(fix))
                 maybeBeacon(fix)
             }
         }
