@@ -339,6 +339,26 @@ object AprsApi {
             }.getOrDefault(false)
         }
 
+    /**
+     * DELETE /api/member/messages?callsign=X
+     * Removes the full conversation with [remoteCallsign] from the server-side
+     * message history. Best-effort: silently returns false on network/auth error
+     * so local deletion always proceeds regardless.
+     */
+    suspend fun memberDeleteConversation(token: String, remoteCallsign: String): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val encoded = java.net.URLEncoder.encode(
+                    remoteCallsign.trim().uppercase(), "UTF-8")
+                val req = Request.Builder()
+                    .url("$BASE/api/member/messages?callsign=$encoded")
+                    .header("X-Member-Token", token)
+                    .delete()
+                    .build()
+                client.newCall(req).execute().use { it.isSuccessful }
+            }.getOrDefault(false)
+        }
+
     private suspend fun adminGetObject(user: String, pass: String, path: String): JSONObject? =
         withContext(Dispatchers.IO) {
             runCatching {
