@@ -226,17 +226,32 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         // Apply server-pushed preference changes from other devices
         viewModelScope.launch {
             ws.memberSyncPrefs.collect { prefs ->
+                // Drop filters
                 settings.dropPistar = prefs.optBoolean("drop_pistar", settings.dropPistar)
                 settings.dropDstar  = prefs.optBoolean("drop_dstar",  settings.dropDstar)
                 settings.dropApdesk = prefs.optBoolean("drop_apdesk", settings.dropApdesk)
-                if (prefs.has("msg_background")) {
-                    settings.messageBackgroundId = prefs.optInt("msg_background", settings.messageBackgroundId)
-                }
-                if (prefs.has("bubble_colour")) {
-                    settings.bubbleColourId = prefs.optInt("bubble_colour", settings.bubbleColourId)
-                }
-                if (prefs.has("incoming_bubble_colour")) {
+                // Appearance
+                if (prefs.has("msg_background"))
+                    settings.messageBackgroundId    = prefs.optInt("msg_background", settings.messageBackgroundId)
+                if (prefs.has("bubble_colour"))
+                    settings.bubbleColourId         = prefs.optInt("bubble_colour", settings.bubbleColourId)
+                if (prefs.has("incoming_bubble_colour"))
                     settings.incomingBubbleColourId = prefs.optInt("incoming_bubble_colour", settings.incomingBubbleColourId)
+                // Map category filters
+                if (prefs.has("filter_ham"))       settings.showHam       = prefs.optBoolean("filter_ham",       settings.showHam)
+                if (prefs.has("filter_weather"))   settings.showWeather   = prefs.optBoolean("filter_weather",   settings.showWeather)
+                if (prefs.has("filter_glider"))    settings.showGlider    = prefs.optBoolean("filter_glider",    settings.showGlider)
+                if (prefs.has("filter_ship"))      settings.showShip      = prefs.optBoolean("filter_ship",      settings.showShip)
+                if (prefs.has("filter_lora"))      settings.showLora      = prefs.optBoolean("filter_lora",      settings.showLora)
+                if (prefs.has("filter_other"))     settings.showOther     = prefs.optBoolean("filter_other",     settings.showOther)
+                if (prefs.has("filter_mmdvm"))     settings.showMmdvm     = prefs.optBoolean("filter_mmdvm",     settings.showMmdvm)
+                // Distance filter
+                if (prefs.has("filter_radius_km"))
+                    settings.filterRadiusKm = prefs.optInt("filter_radius_km", settings.filterRadiusKm)
+                // Per-callsign hidden list
+                prefs.optJSONArray("hidden_callsigns")?.let { arr ->
+                    settings.hiddenCallsigns =
+                        (0 until arr.length()).map { arr.getString(it).uppercase() }.toSet()
                 }
                 tickFilters()
             }
@@ -289,12 +304,33 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         // Silent on failure: local defaults remain in place if the call fails.
         viewModelScope.launch {
             val prefs = AprsApi.memberPreferences(r.token) ?: return@launch
-            settings.dropPistar = prefs.optBoolean("drop_pistar", settings.dropPistar)
-            settings.dropDstar  = prefs.optBoolean("drop_dstar",  settings.dropDstar)
-            settings.dropApdesk = prefs.optBoolean("drop_apdesk", settings.dropApdesk)
-            if (prefs.has("msg_background"))         settings.messageBackgroundId    = prefs.optInt("msg_background", settings.messageBackgroundId)
-            if (prefs.has("bubble_colour"))           settings.bubbleColourId         = prefs.optInt("bubble_colour", settings.bubbleColourId)
-            if (prefs.has("incoming_bubble_colour"))  settings.incomingBubbleColourId = prefs.optInt("incoming_bubble_colour", settings.incomingBubbleColourId)
+                // Drop filters
+                settings.dropPistar = prefs.optBoolean("drop_pistar", settings.dropPistar)
+                settings.dropDstar  = prefs.optBoolean("drop_dstar",  settings.dropDstar)
+                settings.dropApdesk = prefs.optBoolean("drop_apdesk", settings.dropApdesk)
+                // Appearance
+                if (prefs.has("msg_background"))
+                    settings.messageBackgroundId    = prefs.optInt("msg_background", settings.messageBackgroundId)
+                if (prefs.has("bubble_colour"))
+                    settings.bubbleColourId         = prefs.optInt("bubble_colour", settings.bubbleColourId)
+                if (prefs.has("incoming_bubble_colour"))
+                    settings.incomingBubbleColourId = prefs.optInt("incoming_bubble_colour", settings.incomingBubbleColourId)
+                // Map category filters
+                if (prefs.has("filter_ham"))       settings.showHam       = prefs.optBoolean("filter_ham",       settings.showHam)
+                if (prefs.has("filter_weather"))   settings.showWeather   = prefs.optBoolean("filter_weather",   settings.showWeather)
+                if (prefs.has("filter_glider"))    settings.showGlider    = prefs.optBoolean("filter_glider",    settings.showGlider)
+                if (prefs.has("filter_ship"))      settings.showShip      = prefs.optBoolean("filter_ship",      settings.showShip)
+                if (prefs.has("filter_lora"))      settings.showLora      = prefs.optBoolean("filter_lora",      settings.showLora)
+                if (prefs.has("filter_other"))     settings.showOther     = prefs.optBoolean("filter_other",     settings.showOther)
+                if (prefs.has("filter_mmdvm"))     settings.showMmdvm     = prefs.optBoolean("filter_mmdvm",     settings.showMmdvm)
+                // Distance filter
+                if (prefs.has("filter_radius_km"))
+                    settings.filterRadiusKm = prefs.optInt("filter_radius_km", settings.filterRadiusKm)
+                // Per-callsign hidden list
+                prefs.optJSONArray("hidden_callsigns")?.let { arr ->
+                    settings.hiddenCallsigns =
+                        (0 until arr.length()).map { arr.getString(it).uppercase() }.toSet()
+                }
             tickFilters()
         }
         return null
@@ -311,12 +347,27 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         if (token.isNullOrEmpty()) return
         viewModelScope.launch {
             val prefs = org.json.JSONObject().apply {
+                // Drop filters
                 put("drop_pistar",            settings.dropPistar)
                 put("drop_dstar",             settings.dropDstar)
                 put("drop_apdesk",            settings.dropApdesk)
+                // Appearance
                 put("msg_background",         settings.messageBackgroundId)
                 put("bubble_colour",          settings.bubbleColourId)
                 put("incoming_bubble_colour", settings.incomingBubbleColourId)
+                // Map category filters
+                put("filter_ham",             settings.showHam)
+                put("filter_weather",         settings.showWeather)
+                put("filter_glider",          settings.showGlider)
+                put("filter_ship",            settings.showShip)
+                put("filter_lora",            settings.showLora)
+                put("filter_other",           settings.showOther)
+                put("filter_mmdvm",           settings.showMmdvm)
+                // Distance filter
+                put("filter_radius_km",       settings.filterRadiusKm)
+                // Per-callsign hidden list — serialised as JSON array
+                put("hidden_callsigns",
+                    org.json.JSONArray(settings.hiddenCallsigns.toList()))
             }
             AprsApi.memberPreferencesSet(token, prefs)
         }
