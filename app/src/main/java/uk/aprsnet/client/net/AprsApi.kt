@@ -359,6 +359,45 @@ object AprsApi {
             }.getOrDefault(false)
         }
 
+    /** Admin GET /api/admin/servers — list of all registered APRS Net gateways. */
+    data class KnownServer(
+        val ip:           String,
+        val domain:       String,
+        val callsign:     String,
+        val serverName:   String,
+        val version:      String,
+        val stationCount: Int,
+        val registeredAt: Long,
+        val lastSeen:     Long
+    )
+
+    suspend fun adminServers(user: String, pass: String): List<KnownServer> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val req = Request.Builder()
+                    .url("$BASE/api/admin/servers")
+                    .header("Authorization", Credentials.basic(user, pass))
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@runCatching emptyList()
+                    val arr = org.json.JSONArray(resp.body?.string() ?: "[]")
+                    (0 until arr.length()).mapNotNull { i ->
+                        val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                        KnownServer(
+                            ip           = o.optString("ip"),
+                            domain       = o.optString("domain"),
+                            callsign     = o.optString("callsign"),
+                            serverName   = o.optString("server_name"),
+                            version      = o.optString("version"),
+                            stationCount = o.optInt("station_count"),
+                            registeredAt = o.optLong("registered_at"),
+                            lastSeen     = o.optLong("last_seen")
+                        )
+                    }
+                }
+            }.getOrDefault(emptyList())
+        }
+
     private suspend fun adminGetObject(user: String, pass: String, path: String): JSONObject? =
         withContext(Dispatchers.IO) {
             runCatching {
