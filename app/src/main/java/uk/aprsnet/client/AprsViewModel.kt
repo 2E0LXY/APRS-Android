@@ -220,7 +220,8 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                 if (now - lastServerSyncMs < 5 * 60 * 1000L) return@collect
                 lastServerSyncMs = now
                 val msgs = AprsApi.memberMessages(t)
-                if (msgs.length() > 0) messages.syncFromServer(msgs)
+                if (msgs.length() > 0) messages.syncFromServer(
+                    msgs, settings.deletedConversations)
             }
         }
         // Apply server-pushed preference changes from other devices
@@ -411,10 +412,25 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     fun thread(call: String) = messages.thread(call)
 
     fun deleteConversation(call: String) {
-        viewModelScope.launch { runCatching { messages.deleteConversation(call) } }
+        val upper = call.trim().uppercase()
+        viewModelScope.launch {
+            // 1. Delete from local Room DB
+            runCatching { messages.deleteConversation(upper) }
+            // 2. Tombstone so syncFromServer won't resurrect it on reconnect
+            settings.tombstoneConversation(upper)
+            // 3. Delete from server history (best-effort — failure is non-fatal)
+            val token = settings.memberToken
+            if (!token.isNullOrEmpty()) {
+                runCatching {
+                    uk.aprsnet.client.net.AprsApi.memberDeleteConversation(token, upper)
+                }
+            }
+        }
     }
 
     fun send(to: String, text: String) {
+        // Sending to a previously deleted conversation restarts it — clear tombstone
+        settings.clearTombstone(to.trim().uppercase())
         viewModelScope.launch { runCatching { messages.sendMessage(to, text) } }
     }
 
