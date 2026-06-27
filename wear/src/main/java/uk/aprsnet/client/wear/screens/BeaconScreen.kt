@@ -87,8 +87,7 @@ fun BeaconScreen(nav: NavController) {
                     backgroundColor = if (beaconSent) Color(0xFF4CAF50) else MaterialTheme.colors.primary
                 )
             ) {
-                Text(if (beaconSent) "Sent ✓" else "Beacon
-Now", fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(if (beaconSent) "Sent ✓" else "Beacon Now", fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
 
