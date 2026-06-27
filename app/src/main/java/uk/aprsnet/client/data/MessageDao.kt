@@ -74,6 +74,19 @@ interface MessageDao {
     )
     suspend fun pendingAcks(): List<MessageEntity>
 
+    /**
+     * Most recent [limit] messages across all conversations, newest first.
+     * Used by the Wear OS sync bridge — unread messages sort before read ones
+     * so the watch surfaces relevant content without full history.
+     */
+    @Query(
+        """SELECT * FROM messages
+           ORDER BY (CASE WHEN outgoing = 0 AND read = 0 THEN 0 ELSE 1 END),
+                    timestamp DESC
+           LIMIT :limit"""
+    )
+    fun recentForWear(limit: Int): Flow<List<MessageEntity>>
+
     /** Lookup by server UUID — used for sync deduplication. */
     @Query(
         """SELECT * FROM messages
