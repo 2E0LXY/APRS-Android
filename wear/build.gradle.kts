@@ -8,7 +8,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "uk.aprsnet.client.wear"
+        applicationId = "uk.aprsnet.client"   // must match phone app for wearApp() embedding
         minSdk        = 30
         targetSdk     = 35
         versionCode   = 1
