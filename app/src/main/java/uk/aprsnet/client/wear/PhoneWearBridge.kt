@@ -11,6 +11,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import uk.aprsnet.client.data.SettingsStore
 import uk.aprsnet.client.location.Fix
+import uk.aprsnet.client.model.Station
 
 private const val TAG = "PhoneWearBridge"
 
@@ -69,17 +70,23 @@ object PhoneWearBridge {
     }.toString())
     }
 
-    suspend fun pushStations(context: Context, stations: List<uk.aprsnet.client.auto.AutoDataBridge.StationData>, myLat: Double, myLon: Double, force: Boolean = false) {
+    suspend fun pushStations(
+        context: Context,
+        stations: Collection<Station>,
+        myLat: Double,
+        myLon: Double,
+        force: Boolean = false
+    ) {
         if (!shouldPush(lastStationsPushMs, force)) return
         lastStationsPushMs = System.currentTimeMillis()
         val arr = JSONArray()
-        stations.take(20).forEach { s ->
+        stations.sortedByDescending { it.lastHeard }.take(20).forEach { s ->
             arr.put(JSONObject().apply {
                 put("callsign",    s.callsign)
                 put("lat",         s.lat)
                 put("lon",         s.lon)
                 put("comment",     s.comment)
-                put("lastHeardMs", s.lastHeardMs)
+                put("lastHeardMs", s.lastHeard)
                 val distKm = if (myLat != 0.0 && myLon != 0.0)
                     haversineKm(myLat, myLon, s.lat, s.lon) else 0.0
                 put("distKm", distKm)
