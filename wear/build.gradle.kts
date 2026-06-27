@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "uk.aprsnet.client.wear"
-        minSdk        = 30          // Wear OS 3.0 (Pixel Watch 1+)
+        minSdk        = 30
         targetSdk     = 35
         versionCode   = 1
         versionName   = "1.0"
@@ -41,10 +41,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
 
-    // Tiles (shown on watch face long-press)
-    implementation("androidx.wear.tiles:tiles:1.4.0")
-    implementation("androidx.wear.tiles:tiles-material:1.4.0")
-
     // Phone <-> Watch data layer
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
 
@@ -53,6 +49,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
     implementation("org.json:json:20240303")
-    // Guava ListenableFuture required by TileService
-    implementation("com.google.guava:guava:32.0.1-android")
+    // Note: androidx.wear.tiles removed — tiles layout API moved to
+    // androidx.wear.protolayout in 1.4; add back with correct deps when implementing tile.
 }
