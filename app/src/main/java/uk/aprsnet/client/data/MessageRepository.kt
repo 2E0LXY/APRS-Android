@@ -24,6 +24,8 @@ class MessageRepository(
     private var msgIdCounter = ((System.currentTimeMillis() / 1000L) % 97 + 1).toInt()
 
     fun conversations(): Flow<List<ConversationSummary>> = dao.conversations()
+    /** Most recent [limit] messages for Wear OS sync — unread first. */
+    fun recentForWear(limit: Int): Flow<List<MessageEntity>> = dao.recentForWear(limit)
     fun thread(call: String): Flow<List<MessageEntity>> = dao.thread(call)
     fun totalUnread(): Flow<Int> = dao.totalUnread()
 
