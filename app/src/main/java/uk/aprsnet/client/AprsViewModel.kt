@@ -28,6 +28,7 @@ import uk.aprsnet.client.net.AisWebSocket
 import uk.aprsnet.client.net.BleKissManager
 import uk.aprsnet.client.net.AprsApi
 import uk.aprsnet.client.net.AprsWebSocket
+import uk.aprsnet.client.wear.PhoneWearBridge
 
 /**
  * Holds the live application state.
@@ -197,6 +198,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         startBeaconingIfPermitted()
         startSyncListeners()
         startGeoFenceSyncListener()
+        startWearSync()
     }
 
     /**
@@ -204,6 +206,45 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
      * sync-on-reconnect to once per 5 minutes.
      */
     private var lastServerSyncMs = 0L
+
+    /**
+     * Pushes live APRS state to the paired Wear OS device (Pixel Watch etc).
+     * Each push is throttled to 30 minutes in PhoneWearBridge; the watch can
+     * request an immediate refresh by sending /aprs/refresh via MessageClient.
+     */
+    private fun startWearSync() {
+        val ctx = getApplication<android.app.Application>()
+
+        // Stations — push on every map update (throttle handles Bluetooth cost)
+        viewModelScope.launch {
+            _stations.collect { stnMap ->
+                val pos = myPosition.value
+                PhoneWearBridge.pushStations(
+                    ctx, stnMap.values, pos?.lat ?: 0.0, pos?.lon ?: 0.0
+                )
+            }
+        }
+
+        // Status + position — push on every GPS fix
+        viewModelScope.launch {
+            myPosition.collect { fix ->
+                val isConnected = uk.aprsnet.client.auto.AutoDataBridge
+                    .connectionStatus.value?.contains("Connected") == true
+                PhoneWearBridge.pushStatus(
+                    ctx, isConnected, _stations.value.size,
+                    uk.aprsnet.client.auto.AutoDataBridge.lastBeaconMs.value ?: 0L,
+                    settings, fix
+                )
+            }
+        }
+
+        // Messages — push when conversations change
+        viewModelScope.launch {
+            messages.recentForWear(10).collect { msgs ->
+                PhoneWearBridge.pushMessages(ctx, msgs, settings.fullCallsign)
+            }
+        }
+    }
 
     /**
      * Sync server messages and apply any member_sync prefs events.
