@@ -3,6 +3,10 @@ package uk.aprsnet.client
 import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -593,8 +597,37 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     /** Disconnect from the BLE radio and stop auto-reconnect. */
     fun stopBle() = ble.disconnect()
 
+    // ── Network connectivity observer ────────────────────────────────────────
+    // Triggers an immediate WS reconnect when the device regains internet
+    // access (e.g. switching from Wi-Fi to mobile data, or coming out of
+    // flight mode). Without this the backoff timer may still be sleeping while
+    // a working network is already available.
+    private val cm = app.getSystemService(ConnectivityManager::class.java)
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            // Only intervene if the WS is currently disconnected — don't
+            // interrupt an already-established or mid-backoff connection.
+            if (ws.state.value == AprsWebSocket.ConnState.DISCONNECTED) {
+                ws.connect()
+            }
+        }
+        override fun onLost(network: Network) {
+            // Let the WS onFailure callback and backoff handle the reconnect;
+            // nothing extra needed here.
+        }
+    }
+
+    init {
+        val req = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .build()
+        runCatching { cm.registerNetworkCallback(req, networkCallback) }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     override fun onCleared() {
         beacon.stop()
+        runCatching { cm.unregisterNetworkCallback(networkCallback) }
         ws.disconnect()
         aisWs?.disconnect()
         ble.disconnect()
