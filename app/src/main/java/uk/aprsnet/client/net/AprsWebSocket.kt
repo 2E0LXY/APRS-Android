@@ -42,10 +42,10 @@ class AprsWebSocket {
     private var passcode: String = ""
 
     /** Raw incoming packet strings (the "packet" field of rx messages). */
-    val rawPackets = MutableSharedFlow<String>(extraBufferCapacity = 256)
+    val rawPackets = MutableSharedFlow<String>(extraBufferCapacity = 8192)
 
     /** Decoded position "data" objects from rx messages, as JSON. */
-    val positionData = MutableSharedFlow<JSONObject>(extraBufferCapacity = 256)
+    val positionData = MutableSharedFlow<JSONObject>(extraBufferCapacity = 8192)
 
     /** Connection state for the UI. */
     val state = MutableStateFlow(ConnState.DISCONNECTED)
