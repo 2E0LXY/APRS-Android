@@ -4,11 +4,18 @@
     <uses-feature android:name="android.hardware.type.watch" />
 
     <application
+        android:icon="@drawable/ic_launcher"
         android:label="APRS Net"
         android:theme="@android:style/Theme.DeviceDefault">
 
+        <!-- This companion receives APRS data from the paired phone app. -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="false" />
+
         <activity
             android:name=".WearMainActivity"
+            android:taskAffinity=""
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

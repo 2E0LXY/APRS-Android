@@ -1,5 +1,6 @@
 package uk.aprsnet.client.net
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -39,6 +40,12 @@ import java.util.UUID
  *   L2       : AX.25 UI — ctrl=0x03, pid=0xF0
  *   Position : Mic-E (6-char AX.25 destination field)
  */
+/*
+ * Every public BLE entry point is gated by hasPermissions(). Android lint
+ * cannot follow that helper through the asynchronous scan/GATT callbacks, so
+ * keep the platform calls together under this documented suppression.
+ */
+@SuppressLint("MissingPermission")
 class BleKissManager(private val appCtx: Context) {
 
     enum class BleState { DISCONNECTED, SCANNING, CONNECTING, CONNECTED }

@@ -17,7 +17,7 @@ import uk.aprsnet.client.data.MessageRepository
 import uk.aprsnet.client.data.SettingsStore
 import uk.aprsnet.client.location.BeaconManager
 import uk.aprsnet.client.location.LocationProvider
-import uk.aprsnet.client.net.AprsWebSocket
+import uk.aprsnet.client.net.AprsConnectionManager
 
 /**
  * Foreground service: keeps the APRS WebSocket connected while the app is
@@ -39,7 +39,8 @@ class AprsService : Service() {
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val ws = AprsWebSocket()
+    private val connectionOwner = Any()
+    private val ws = AprsConnectionManager.socket
     private lateinit var repo: MessageRepository
     private lateinit var settings: SettingsStore
     private lateinit var beacon: BeaconManager
@@ -91,8 +92,9 @@ class AprsService : Service() {
                 repo.myCallsign = call
                 if (!started) {
                     startForeground(FG_ID, NotificationHelper.serviceNotification(this))
+                    ws.setClientId(settings.clientInstanceId)
                     if (call.isNotEmpty()) ws.setCredentials(call, pass)
-                    ws.connect()
+                    AprsConnectionManager.acquire(connectionOwner)
                     startBackgroundBeaconing()
                     started = true
                 } else if (call.isNotEmpty()) {
@@ -115,7 +117,7 @@ class AprsService : Service() {
 
     override fun onDestroy() {
         beacon.stop()
-        ws.disconnect()
+        AprsConnectionManager.release(connectionOwner)
         scope.cancel()
         super.onDestroy()
     }

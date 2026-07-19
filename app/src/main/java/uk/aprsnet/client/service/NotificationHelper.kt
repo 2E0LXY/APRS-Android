@@ -1,15 +1,18 @@
 package uk.aprsnet.client.service
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
+import androidx.core.content.ContextCompat
 import uk.aprsnet.client.MainActivity
 import uk.aprsnet.client.R
 import uk.aprsnet.client.data.MessageEntity
@@ -117,9 +120,16 @@ object NotificationHelper {
             builder.priority = NotificationCompat.PRIORITY_HIGH
         }
 
-        runCatching {
-            NotificationManagerCompat.from(ctx)
-                .notify(msg.remoteCall.hashCode(), builder.build())
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(
+                ctx,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            runCatching {
+                NotificationManagerCompat.from(ctx)
+                    .notify(msg.remoteCall.hashCode(), builder.build())
+            }
         }
     }
 
