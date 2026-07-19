@@ -291,9 +291,9 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                 if (prefs.has("filter_lora"))      settings.showLora      = prefs.optBoolean("filter_lora",      settings.showLora)
                 if (prefs.has("filter_other"))     settings.showOther     = prefs.optBoolean("filter_other",     settings.showOther)
                 if (prefs.has("filter_mmdvm"))     settings.showMmdvm     = prefs.optBoolean("filter_mmdvm",     settings.showMmdvm)
-                // Distance filter
-                if (prefs.has("filter_radius_km"))
-                    settings.filterRadiusKm = prefs.optInt("filter_radius_km", settings.filterRadiusKm)
+                // filter_radius_km is NOT restored from server — it is device-local only.
+                // Restoring it was causing Android to silently show only local stations
+                // on any device where the user had previously changed the distance slider.
                 // Per-callsign hidden list
                 prefs.optJSONArray("hidden_callsigns")?.let { arr ->
                     settings.hiddenCallsigns =
@@ -369,9 +369,9 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                 if (prefs.has("filter_lora"))      settings.showLora      = prefs.optBoolean("filter_lora",      settings.showLora)
                 if (prefs.has("filter_other"))     settings.showOther     = prefs.optBoolean("filter_other",     settings.showOther)
                 if (prefs.has("filter_mmdvm"))     settings.showMmdvm     = prefs.optBoolean("filter_mmdvm",     settings.showMmdvm)
-                // Distance filter
-                if (prefs.has("filter_radius_km"))
-                    settings.filterRadiusKm = prefs.optInt("filter_radius_km", settings.filterRadiusKm)
+                // filter_radius_km is NOT restored from server — it is device-local only.
+                // Restoring it was causing Android to silently show only local stations
+                // on any device where the user had previously changed the distance slider.
                 // Per-callsign hidden list
                 prefs.optJSONArray("hidden_callsigns")?.let { arr ->
                     settings.hiddenCallsigns =
@@ -409,8 +409,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
                 put("filter_lora",            settings.showLora)
                 put("filter_other",           settings.showOther)
                 put("filter_mmdvm",           settings.showMmdvm)
-                // Distance filter
-                put("filter_radius_km",       settings.filterRadiusKm)
+                // filter_radius_km intentionally omitted — device-local setting only
                 // Per-callsign hidden list — serialised as JSON array
                 put("hidden_callsigns",
                     org.json.JSONArray(settings.hiddenCallsigns.toList()))
