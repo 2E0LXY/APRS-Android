@@ -29,6 +29,7 @@ import uk.aprsnet.client.location.LocationProvider
 import uk.aprsnet.client.model.Station
 import uk.aprsnet.client.model.StationType
 import uk.aprsnet.client.net.AisWebSocket
+import uk.aprsnet.client.net.AprsConnectionManager
 import uk.aprsnet.client.net.BleKissManager
 import uk.aprsnet.client.net.AprsApi
 import uk.aprsnet.client.net.AprsWebSocket
@@ -43,7 +44,8 @@ import uk.aprsnet.client.wear.PhoneWearBridge
  */
 class AprsViewModel(app: Application) : AndroidViewModel(app) {
 
-    val ws  = AprsWebSocket()
+    private val connectionOwner = Any()
+    val ws = AprsConnectionManager.socket
     val ble  = BleKissManager(app)
     private var aisWs: AisWebSocket? = null
 
@@ -197,8 +199,9 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         val call = callsign.ifEmpty { settings.callsign }
         val pass = passcode.ifEmpty { settings.passcode }
         messages.myCallsign = settings.fullCallsign     // includes SSID suffix if set
+        ws.setClientId(settings.clientInstanceId)
         if (call.isNotEmpty()) ws.setCredentials(call, pass)
-        ws.connect()
+        AprsConnectionManager.acquire(connectionOwner)
         startBeaconingIfPermitted()
         startSyncListeners()
         startGeoFenceSyncListener()
@@ -627,7 +630,7 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() {
         beacon.stop()
         runCatching { cm.unregisterNetworkCallback(networkCallback) }
-        ws.disconnect()
+        AprsConnectionManager.release(connectionOwner)
         aisWs?.disconnect()
         ble.disconnect()
         super.onCleared()

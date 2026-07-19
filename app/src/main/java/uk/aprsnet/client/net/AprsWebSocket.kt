@@ -34,12 +34,18 @@ class AprsWebSocket {
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .build()
 
+    private val socketLock = Any()
+    @Volatile
     private var ws: WebSocket? = null
     private var retry = 0
+    private var reconnectGeneration = 0L
+    private var reconnectScheduled = false
+    @Volatile
     private var shouldRun = false
 
     private var callsign: String = ""
     private var passcode: String = ""
+    private var clientId: String = ""
 
     /** Raw incoming packet strings (the "packet" field of rx messages). */
     val rawPackets = MutableSharedFlow<String>(extraBufferCapacity = 8192)
@@ -69,47 +75,65 @@ class AprsWebSocket {
     val onAuthed = MutableSharedFlow<Unit>(extraBufferCapacity = 2)
 
     fun setCredentials(call: String, pass: String) {
-        callsign = call.trim().uppercase()
-        passcode = pass.trim()
-        // Reconnect so the new credentials are applied immediately.
-        // If already authed with different credentials, just re-authenticate;
-        // if disconnected or connecting, a full reconnect ensures a clean auth.
-        when (state.value) {
-            ConnState.AUTHED, ConnState.CONNECTED -> authenticate()
-            else -> {
-                ws?.close(1000, "credential change")
-                ws = null
-                if (shouldRun) openSocket()
-            }
+        synchronized(socketLock) {
+            callsign = call.trim().uppercase()
+            passcode = pass.trim()
+        }
+        // Authentication is an in-band message. A connecting socket will use
+        // the new values in onOpen; an open socket can re-authenticate without
+        // creating another connection.
+        if (state.value == ConnState.AUTHED || state.value == ConnState.CONNECTED) {
+            authenticate(ws)
+        }
+    }
+
+    fun setClientId(id: String) {
+        synchronized(socketLock) {
+            clientId = id.trim().take(128)
         }
     }
 
     fun connect() {
-        shouldRun = true
-        openSocket()
+        synchronized(socketLock) {
+            shouldRun = true
+            if (ws == null && !reconnectScheduled) openSocketLocked()
+        }
     }
 
     fun disconnect() {
-        shouldRun = false
-        ws?.close(1000, "client closing")
-        ws = null
-        state.value = ConnState.DISCONNECTED
+        val closing = synchronized(socketLock) {
+            shouldRun = false
+            reconnectGeneration++
+            reconnectScheduled = false
+            val current = ws
+            ws = null
+            state.value = ConnState.DISCONNECTED
+            current
+        }
+        closing?.close(1000, "client closing")
     }
 
-    private fun openSocket() {
+    private fun openSocketLocked() {
+        if (!shouldRun || ws != null) return
+        reconnectGeneration++
+        reconnectScheduled = false
         state.value = ConnState.CONNECTING
         val req = Request.Builder().url(WS_URL).build()
         ws = client.newWebSocket(req, listener)
     }
 
-    private fun authenticate() {
-        if (callsign.isEmpty() || passcode.isEmpty()) return
+    private fun authenticate(socket: WebSocket?) {
+        val identity = synchronized(socketLock) {
+            Triple(callsign, passcode, clientId)
+        }
+        if (socket == null || identity.first.isEmpty() || identity.second.isEmpty()) return
         val o = JSONObject()
         o.put("type", "auth")
-        o.put("callsign", callsign)
-        o.put("passcode", passcode)
+        o.put("callsign", identity.first)
+        o.put("passcode", identity.second)
         o.put("software", "APRSNetAndroid 2.0")
-        ws?.send(o.toString())
+        if (identity.third.isNotEmpty()) o.put("client_id", identity.third)
+        socket.send(o.toString())
     }
 
     /** Transmit a raw APRS packet (type:tx). Requires an authed connection. */
@@ -124,12 +148,24 @@ class AprsWebSocket {
 
     private val listener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            retry = 0
-            state.value = ConnState.CONNECTED
-            authenticate()
+            val current = synchronized(socketLock) {
+                if (webSocket !== ws) {
+                    false
+                } else {
+                    retry = 0
+                    state.value = ConnState.CONNECTED
+                    true
+                }
+            }
+            if (!current) {
+                webSocket.close(1000, "superseded connection")
+                return
+            }
+            authenticate(webSocket)
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
+            if (webSocket !== ws) return
             try {
                 val o = JSONObject(text)
                 when (o.optString("type")) {
@@ -164,22 +200,39 @@ class AprsWebSocket {
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            scheduleReconnect()
+            handleSocketEnd(webSocket)
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            scheduleReconnect()
+            handleSocketEnd(webSocket)
         }
     }
 
-    private fun scheduleReconnect() {
-        if (!shouldRun) return
-        state.value = ConnState.DISCONNECTED
-        retry++
-        val delayMs = min(30000.0, 1000.0 * 1.5.pow(min(retry, 10))).toLong()
+    private fun handleSocketEnd(ended: WebSocket) {
+        val reconnect = synchronized(socketLock) {
+            // OkHttp can report a terminal callback for an obsolete socket,
+            // or more than one terminal callback for the same socket. Only
+            // the current socket may schedule one reconnect.
+            if (ended !== ws) return
+            ws = null
+            state.value = ConnState.DISCONNECTED
+            if (!shouldRun || reconnectScheduled) return
+            retry++
+            reconnectScheduled = true
+            val token = ++reconnectGeneration
+            token to min(30000.0, 1000.0 * 1.5.pow(min(retry, 10))).toLong()
+        }
         Thread {
-            Thread.sleep(delayMs)
-            if (shouldRun) openSocket()
+            Thread.sleep(reconnect.second)
+            synchronized(socketLock) {
+                if (shouldRun &&
+                    reconnect.first == reconnectGeneration &&
+                    ws == null
+                ) {
+                    reconnectScheduled = false
+                    openSocketLocked()
+                }
+            }
         }.start()
     }
 }

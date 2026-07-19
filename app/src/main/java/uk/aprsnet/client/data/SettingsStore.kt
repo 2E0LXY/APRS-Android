@@ -1,6 +1,7 @@
 package uk.aprsnet.client.data
 
 import android.content.Context
+import java.util.UUID
 
 /**
  * All user-tunable settings, persisted in SharedPreferences.
@@ -9,7 +10,27 @@ import android.content.Context
  */
 class SettingsStore(context: Context) {
 
+    companion object {
+        private val clientIdentityLock = Any()
+    }
+
     private val prefs = context.getSharedPreferences("aprs_settings", Context.MODE_PRIVATE)
+
+    /**
+     * Stable random identifier for this app installation. It is sent only in
+     * authenticated WebSocket handshakes so the server can replace a stale
+     * reconnect from this same device without disconnecting another phone
+     * using the same callsign behind the same router.
+     */
+    val clientInstanceId: String
+        get() = synchronized(clientIdentityLock) {
+            prefs.getString("client_instance_id", null)?.takeIf { it.isNotBlank() }
+                ?: UUID.randomUUID().toString().also {
+                    // Commit synchronously so the foreground service and UI,
+                    // which can start together, always read the same identity.
+                    prefs.edit().putString("client_instance_id", it).commit()
+                }
+        }
 
     // -- APRS-IS credentials ------------------------------------------------
     var callsign: String

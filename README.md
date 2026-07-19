@@ -146,6 +146,7 @@ app/src/main/java/uk/aprsnet/client/
   model/
     MessageState.kt         — SENDING / SENT / ACKED / FAILED enum
   net/
+    AprsConnectionManager.kt — process-wide WS owner shared by UI and service
     AprsWebSocket.kt        — OkHttp WS; rawPackets + positionData + memberSyncPrefs
                               + onAuthed SharedFlows; auto-reconnect with backoff
     AprsApi.kt              — REST helper: login, preferences, memberMessages(),
@@ -170,6 +171,7 @@ app/src/main/java/uk/aprsnet/client/
 
 | Version | Changes |
 |---------|---------|
+| v3.0.4 | One shared APRS WebSocket per app installation; stale reconnect replacement; persistent installation identity; permission-safe BLE/notifications and corrected Wear companion metadata |
 | v2.5.12 | Location Looper fix — GPS callbacks now always delivered (background-reliable); real-time `member_sync` WS event handling; reconnect message + prefs sync (5-min rate-limit) |
 | v2.5.11 | Geo-fence alert rules — `GeoFenceScreen`, server CRUD, WS alert → local notification |
 | v2.5.10 | Direct member-to-member messaging with delivery route selector (APRS \| Direct) |
