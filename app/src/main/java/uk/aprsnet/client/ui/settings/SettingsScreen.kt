@@ -106,6 +106,7 @@ fun SettingsScreen(vm: AprsViewModel, modifier: Modifier = Modifier, onNavigateT
         AisCard(vm)
         GeoFenceSection(vm = vm, onNavigate = { showGeoFence = true })
         NotificationsCard(vm)
+        IGateCard(vm)
         StatusSection(vm)
         HelpCard()
         CloseAppCard()
@@ -622,6 +623,76 @@ private fun GeoFenceSection(vm: AprsViewModel, onNavigate: () -> Unit) {
 // ============================================================================
 // shared bits
 // ============================================================================
+
+@Composable
+private fun IGateCard(vm: AprsViewModel) {
+    val scope = rememberCoroutineScope()
+    var devices by remember { mutableStateOf<List<org.json.JSONObject>>(emptyList()) }
+    var status by remember { mutableStateOf("") }
+    var loaded by remember { mutableStateOf(false) }
+
+    fun refresh() {
+        val token = vm.settings.memberToken
+        if (token.isBlank()) { status = "Sign in to your member account first"; return }
+        scope.launch {
+            status = "Loading..."
+            val arr = uk.aprsnet.client.net.AprsApi.memberIGates(token)
+            devices = (0 until arr.length()).map { arr.getJSONObject(it) }
+            status = if (devices.isEmpty()) "No devices connected via MQTT" else ""
+            loaded = true
+        }
+    }
+
+    Card("My LoRa Devices (iGates & Trackers)") {
+        Text(
+            "Remote management for devices running 2E0LXY firmware, " +
+                "connected via aprsnet.uk MQTT. Update installs the latest " +
+                "GitHub release over the air.",
+            color = TextDim, fontSize = 12.sp
+        )
+        Spacer(Modifier.size(8.dp))
+        OutlinedButton(onClick = { refresh() }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (loaded) "Refresh" else "Load Devices")
+        }
+        if (status.isNotEmpty()) {
+            Spacer(Modifier.size(6.dp))
+            Text(status, color = TextDim, fontSize = 12.sp)
+        }
+        devices.forEach { d ->
+            val call = d.optString("callsign", d.optString("device", "?"))
+            val online = d.optBoolean("online", false)
+            Spacer(Modifier.size(10.dp))
+            Text(
+                call + if (online) "  ● online" else "  ○ offline",
+                color = if (online) Accent else TextDim,
+                fontSize = 14.sp
+            )
+            val fw = d.optString("fw", "")
+            val uptime = d.optLong("uptime", 0)
+            if (fw.isNotEmpty() || uptime > 0) {
+                Text(
+                    "fw $fw  up ${uptime / 3600}h${(uptime % 3600) / 60}m",
+                    color = TextDim, fontSize = 11.sp
+                )
+            }
+            Spacer(Modifier.size(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("beacon" to "Beacon", "update" to "Update", "restart" to "Restart").forEach { (cmd, label) ->
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                val ok = uk.aprsnet.client.net.AprsApi.igateCmd(vm.settings.memberToken, call, cmd)
+                                status = if (ok) "$label sent to $call" else "$label failed"
+                            }
+                        },
+                        enabled = online
+                    ) { Text(label, fontSize = 12.sp) }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun Card(title: String, content: @Composable () -> Unit) {
     GlassCard(title = title, content = content)
