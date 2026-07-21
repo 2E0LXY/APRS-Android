@@ -231,6 +231,38 @@ object AprsApi {
      * Public endpoint; cached 5 minutes server-side. Used to badge ANUK members
      * throughout the UI. Silently returns empty set on error.
      */
+    /** GET /api/member/igates — member's MQTT-connected iGate/tracker devices. */
+    suspend fun memberIGates(token: String): JSONArray =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val req = Request.Builder()
+                    .url("$BASE/api/member/igates")
+                    .header("X-Member-Token", token)
+                    .build()
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@runCatching JSONArray()
+                    val body = resp.body?.string() ?: return@runCatching JSONArray()
+                    val obj = JSONObject(body)
+                    obj.optJSONArray("igates") ?: JSONArray()
+                }
+            }.getOrDefault(JSONArray())
+        }
+
+    /** POST /api/member/igate/{call}/cmd — restart | beacon | telemetry | update. */
+    suspend fun igateCmd(token: String, deviceCall: String, cmd: String): Boolean =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val body = JSONObject().put("cmd", cmd).toString()
+                    .toRequestBody("application/json".toMediaTypeOrNull())
+                val req = Request.Builder()
+                    .url("$BASE/api/member/igate/$deviceCall/cmd")
+                    .header("X-Member-Token", token)
+                    .post(body)
+                    .build()
+                client.newCall(req).execute().use { it.isSuccessful }
+            }.getOrDefault(false)
+        }
+
     suspend fun memberCallsigns(): Set<String> = withContext(Dispatchers.IO) {
         runCatching {
             val req = Request.Builder().url("$BASE/api/members/callsigns").build()
