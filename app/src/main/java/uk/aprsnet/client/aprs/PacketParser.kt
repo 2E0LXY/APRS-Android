@@ -261,62 +261,13 @@ object PacketParser {
     }
 
     /**
-     * Mic-E position decode. Called when info field starts with '`' or '\'' — both
-     * data-type indicators for Mic-E packets. Extracts lat/lon, speed (km/h), heading,
-     * and altitude (metres, from base-91 comment suffix) so BLE-received RT-950 Pro
-     * packets display identically to server-decoded position data.
-     *
-     * Algorithm: APRS 1.0.1 spec §10.
+     * Mic-E position decode. Called when the info field starts with '`' or '\'' (the two Mic-E
+     * data type indicators). Position, speed, course and symbol come from [MicE] (APRS 1.0.1
+     * ch.10, unit-tested); altitude is the base-91 triplet before '}' in the comment.
      */
     private fun parseMicE(from: String, path: String, info: String, raw: String): Station? {
-        if (info.length < 9) return null
-        // Destination callsign (without SSID) encodes lat + flags
-        val dest = path.substringBefore(',').substringBefore('-').uppercase()
-        if (dest.length < 6) return null
-
-        fun digit(c: Char): Int = when {
-            c in '0'..'9' -> c - '0'
-            c in 'A'..'J' -> c - 'A'
-            c in 'P'..'Y' -> c - 'P'
-            else           -> 0      // K, L, Z = ambiguous → 0
-        }
-
-        // Latitude
-        val latDeg = digit(dest[0]) * 10 + digit(dest[1])
-        val latMin = digit(dest[2]) * 10.0 + digit(dest[3]) + digit(dest[4]) / 10.0 + digit(dest[5]) / 100.0
-        var lat = latDeg + latMin / 60.0
-        if (dest[3] in 'P'..'Z') lat = -lat                       // South
-
-        // Longitude offset and W/E from dest[4] and dest[5]
-        val lonOffset = if (dest[4] in 'P'..'Z') 100 else 0
-        val isWest    = dest[5] in 'P'..'Z'
-
-        // Longitude from info bytes 1–3 (byte 0 = data-type indicator)
-        var lonDeg = info[1].code - 28
-        if (lonDeg >= 180) lonDeg -= 80
-        lonDeg += lonOffset
-
-        var lonMin = info[2].code - 28
-        if (lonMin >= 60) lonMin -= 60
-        val lonFrac = (info[3].code - 28).toDouble() / 100.0
-
-        var lon = lonDeg + (lonMin + lonFrac) / 60.0
-        if (isWest) lon = -lon
-
-        if (lat !in -90.0..90.0 || lon !in -180.0..180.0) return null
-
-        // Speed/course from info bytes 4–6
-        val spB = info[4].code - 28
-        val dcB = info[5].code - 28
-        val seB = info[6].code - 28
-        var spd = spB * 10 + dcB / 10
-        var hdg = (dcB % 10) * 100 + seB
-        if (spd >= 800) spd -= 800
-        if (hdg >= 400) hdg -= 400
-
-        // Symbol: info[7] = code, info[8] = table
-        val symCode  = if (info.length > 7) info[7] else '>'
-        val symTable = if (info.length > 8) info[8] else '/'
+        val dest = path.substringBefore(',')
+        val m = MicE.decode(dest, info) ?: return null
 
         // Altitude: base-91 triplet immediately before '}' in comment
         val comment = if (info.length > 9) info.substring(9) else ""
@@ -334,18 +285,18 @@ object PacketParser {
 
         return Station(
             callsign    = from,
-            lat         = lat,
-            lon         = lon,
-            symbolTable = symTable,
-            symbolCode  = symCode,
+            lat         = m.lat,
+            lon         = m.lon,
+            symbolTable = m.symbolTable,
+            symbolCode  = m.symbolCode,
             comment     = cleanComment,
-            course      = if (hdg > 0) hdg else null,
-            speedKmh    = if (spd > 0) spd * 1.852 else null,
+            course      = if (m.courseDeg > 0) m.courseDeg else null,
+            speedKmh    = if (m.speedKnots > 0) m.speedKnots * 1.852 else null,
             altitudeM   = altM,
             path        = path,
             raw         = raw,
             lastHeard   = System.currentTimeMillis(),
-            type        = classify(from, path, symTable, symCode)
+            type        = classify(from, path, m.symbolTable, m.symbolCode)
         )
     }
 

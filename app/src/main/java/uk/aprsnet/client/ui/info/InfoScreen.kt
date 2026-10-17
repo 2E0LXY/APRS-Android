@@ -55,6 +55,14 @@ fun InfoScreen(modifier: Modifier = Modifier) {
                 color = Accent, fontSize = 13.sp
             )
         }
+        Card("Symbol credits") {
+            Text(
+                "APRS symbols: aprs.fi high-resolution symbol set by Heikki Hannikainen OH7LZB " +
+                    "(github.com/hessu/aprs-symbols). Symbol descriptions: aprs.fi symbol index " +
+                    "(github.com/hessu/aprs-symbol-index, CC BY-SA 4.0).",
+                color = TextDim, fontSize = 12.sp
+            )
+        }
         Card("Licence") {
             Text(
                 "GNU General Public Licence v3\n(c) 2026 Daren Loxley 2E0LXY",

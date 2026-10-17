@@ -54,6 +54,7 @@ android {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     // Android Auto — Car App Library (navigation category + full map/template set)
     implementation("androidx.car.app:app:1.4.0")
 

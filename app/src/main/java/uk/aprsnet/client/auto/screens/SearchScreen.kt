@@ -31,6 +31,7 @@ class SearchScreen(
             itemList.addItem(
                 Row.Builder()
                     .setTitle(stn.callsign)
+                    .apply { uk.aprsnet.client.auto.CarSymbols.icon(stn.symbol)?.let { setImage(it, Row.IMAGE_TYPE_SMALL) } }
                     .addText("${stn.comment.take(40).ifBlank { "—" }}  $ageStr ago")
                     .setOnClickListener {
                         when (mode) {

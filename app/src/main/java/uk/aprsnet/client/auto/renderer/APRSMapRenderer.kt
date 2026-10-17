@@ -6,6 +6,8 @@ import kotlin.math.*
 
 class APRSMapRenderer {
 
+    private companion object { const val SYMBOL_PX = 44 }
+
     // ─── Viewport ────────────────────────────────────────────────────────────
 
     var surfaceWidth  = 1
@@ -21,6 +23,8 @@ class APRSMapRenderer {
     // ─── Paints ──────────────────────────────────────────────────────────────
 
     private val bgPaint = Paint().apply { color = Color.rgb(22, 34, 46) }
+
+    private val symbolPaint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
 
     private val gridPaint = Paint().apply {
         color = Color.argb(50, 120, 180, 255)
@@ -184,14 +188,16 @@ class APRSMapRenderer {
             val pt = latLonToPixel(station.lat, station.lon)
             val ageMs = now - station.lastHeardMs
             val isStale = ageMs > 3_600_000L    // > 1 hour
-            val isWx    = station.symbol == "_"
-            val paint = when {
-                isStale -> stalePaint
-                isWx    -> wxStationPaint
-                else    -> stationPaint
+            // Official APRS symbol (with overlay); falls back to a dot only if the engine
+            // has not been initialised yet.
+            val sym = if (station.symbol.length >= 2) station.symbol else "//"
+            val bmp = uk.aprsnet.client.aprs.AprsSymbols.bitmap(sym[0], sym[1], SYMBOL_PX)
+            if (bmp != null) {
+                symbolPaint.alpha = if (isStale) 90 else 255
+                canvas.drawBitmap(bmp, pt.x - bmp.width / 2f, pt.y - bmp.height / 2f, symbolPaint)
+            } else {
+                canvas.drawCircle(pt.x, pt.y, 10f, if (isStale) stalePaint else stationPaint)
             }
-            val radius = if (isWx) 8f else 10f
-            canvas.drawCircle(pt.x, pt.y, radius, paint)
             // Course line if moving (>2 kt)
             if (!isStale && station.speed > 2f) {
                 val rad = Math.toRadians(station.course.toDouble())
@@ -203,7 +209,7 @@ class APRSMapRenderer {
                 }
                 canvas.drawLine(pt.x, pt.y, ex, ey, linePaint)
             }
-            canvas.drawText(station.callsign, pt.x + 13f, pt.y + 8f, callsignPaint)
+            canvas.drawText(station.callsign, pt.x + SYMBOL_PX / 2f + 4f, pt.y + 8f, callsignPaint)
         }
     }
 

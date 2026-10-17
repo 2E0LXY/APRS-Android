@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import uk.aprsnet.client.aprs.PacketParser
 import uk.aprsnet.client.data.AppDatabase
@@ -249,6 +250,99 @@ class AprsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             messages.recentForWear(10).collect { msgs ->
                 PhoneWearBridge.pushMessages(ctx, msgs, settings.fullCallsign)
+            }
+        }
+
+        wireAutoBridge()
+    }
+
+    /**
+     * Feeds the Android Auto screens (map, stations, weather, messages, beacon). The Car App
+     * screens read [uk.aprsnet.client.auto.AutoDataBridge]; nothing wrote to it before, so every
+     * Auto screen except notification-based messaging was empty.
+     */
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    private fun wireAutoBridge() {
+        val bridge = uk.aprsnet.client.auto.AutoDataBridge
+        bridge.myCallsign = settings.fullCallsign
+        bridge.onBeaconNow = { beacon.beaconNow() }
+        bridge.onSendMessage = { to, body -> viewModelScope.launch { messages.sendMessage(to, body) } }
+
+        viewModelScope.launch {
+            ws.state.collect { st ->
+                bridge.myCallsign = settings.fullCallsign
+                bridge.connectionStatus.postValue(
+                    when (st) {
+                        AprsWebSocket.ConnState.AUTHED -> "Connected"
+                        AprsWebSocket.ConnState.CONNECTED -> "Connected (authenticating)"
+                        AprsWebSocket.ConnState.CONNECTING -> "Connecting"
+                        AprsWebSocket.ConnState.DISCONNECTED -> "Disconnected"
+                    }
+                )
+            }
+        }
+
+        // Stations + weather - sampled so a busy feed doesn't flood the car host
+        viewModelScope.launch {
+            _stations.sample(2_000).collect { m ->
+                val newest = m.values.sortedByDescending { it.lastHeard }.take(300)
+                bridge.stations.postValue(newest.map { st ->
+                    uk.aprsnet.client.auto.AutoDataBridge.StationData(
+                        callsign = st.callsign,
+                        lat = st.lat,
+                        lon = st.lon,
+                        comment = st.comment,
+                        symbol = "${st.symbolTable}${st.symbolCode}",
+                        lastHeardMs = st.lastHeard,
+                        course = st.course ?: 0,
+                        speed = ((st.speedKmh ?: 0.0) / 1.852).toFloat(),
+                        altitude = (st.altitudeM ?: 0.0).toFloat(),
+                        path = st.path
+                    )
+                })
+                bridge.weather.postValue(newest.filter { it.wx != null }.take(50).map { st ->
+                    val wx = st.wx!!
+                    uk.aprsnet.client.auto.AutoDataBridge.WeatherData(
+                        callsign = st.callsign,
+                        tempC = wx.tempF?.let { ((it - 32.0) * 5.0 / 9.0).toFloat() },
+                        windSpeedKts = wx.windSpeedMph?.let { (it * 0.868976).toFloat() },
+                        windDirDeg = wx.windDirDeg,
+                        rainMmLastHour = wx.rain1hIn?.let { (it * 25.4).toFloat() },
+                        humidity = wx.humidityPct,
+                        pressureMb = wx.pressureHpa?.toFloat(),
+                        timestampMs = st.lastHeard
+                    )
+                })
+            }
+        }
+
+        viewModelScope.launch {
+            myPosition.collect { fix ->
+                bridge.myPosition.postValue(fix?.let {
+                    uk.aprsnet.client.auto.AutoDataBridge.PositionData(
+                        lat = it.lat, lon = it.lon,
+                        course = it.course.coerceAtLeast(0),
+                        speed = (it.speedKmh / 1.852).toFloat()
+                    )
+                })
+            }
+        }
+
+        viewModelScope.launch { beacon.lastBeaconAt.collect { bridge.lastBeaconMs.postValue(it) } }
+
+        viewModelScope.launch {
+            messages.recentForWear(30).collect { list ->
+                val me = settings.fullCallsign
+                bridge.messages.postValue(list.map { m ->
+                    uk.aprsnet.client.auto.AutoDataBridge.MessageData(
+                        id = m.id.toString(),
+                        from = if (m.outgoing) me else m.remoteCall,
+                        to = if (m.outgoing) m.remoteCall else me,
+                        body = m.text,
+                        timestampMs = m.timestamp,
+                        acked = if (m.outgoing) m.stateEnum() == uk.aprsnet.client.model.MessageState.ACKED else m.read
+                    )
+                })
             }
         }
     }

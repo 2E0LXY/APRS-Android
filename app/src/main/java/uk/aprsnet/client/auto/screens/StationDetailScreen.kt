@@ -71,7 +71,7 @@ class StationDetailScreen(
             .build()
 
         return PaneTemplate.Builder(pane)
-            .setTitle("${station.callsign}  •  ${station.symbol}")
+            .setTitle("${station.callsign}  •  ${uk.aprsnet.client.auto.CarSymbols.label(station.symbol)}")
             .setHeaderAction(Action.BACK)
             .build()
     }

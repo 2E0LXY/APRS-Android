@@ -446,16 +446,6 @@ private fun syncMarkers(
 // a Bitmap so the marker doesn't fall back to osmdroid's default hand icon.
 // Cached per type so we don't redraw on every marker creation.
 // ---------------------------------------------------------------------------
-private val typeColours = mapOf(
-    StationType.HAM     to 0xFF3B82F6.toInt(),  // blue
-    StationType.WEATHER to 0xFF22C55E.toInt(),  // green
-    StationType.GLIDER  to 0xFFF59E0B.toInt(),  // amber
-    StationType.OBJECT  to 0xFFE5E7EB.toInt(),  // light grey
-    StationType.SHIP    to 0xFF06B6D4.toInt(),  // cyan
-    StationType.LORA    to 0xFFA855F7.toInt(),  // purple
-    StationType.MMDVM   to 0xFFEC4899.toInt(),  // rose / magenta
-    StationType.OTHER   to 0xFF94A3B8.toInt()   // slate
-)
 private val iconCache = HashMap<Int, BitmapDrawable>()
 
 private val glyphIconCache = HashMap<String, BitmapDrawable>()
@@ -488,6 +478,14 @@ private fun wxConditionKey(wx: WxData?): String {
     }
 }
 
+/** Station marker size on the map. The official symbol is drawn alone - no coloured disc. */
+private const val MARKER_DP = 30
+
+/**
+ * Marker icon: the official APRS symbol (with overlay character when the packet carries one).
+ * Stations that never sent a valid symbol get the official default for their type. Weather
+ * stations keep the official weather symbol and add a small conditions badge in the corner.
+ */
 private fun dotIcon(
     map: MapView,
     type: StationType,
@@ -495,111 +493,37 @@ private fun dotIcon(
     symbolCode: Char,
     wx: WxData? = null
 ): BitmapDrawable {
-    // Weather stations: tint the marker by current conditions (rain, snow,
-    // storm, wind, hot, mild, cloudy) instead of a flat colour, and draw the
-    // matching emoji as the glyph so conditions are visible at a glance.
-    val wxKey = if (type == StationType.WEATHER) wxConditionKey(wx) else null
-    val (colour, wxEmoji) = if (type == StationType.WEATHER && wx != null) {
-        val (emoji, tint) = weatherCondition(wx)
-        tint.toArgb() to emoji
-    } else {
-        (typeColours[type] ?: 0xFF94A3B8.toInt()) to null
-    }
-    // Cache key includes the symbol (and WX condition bucket, if weather) so
-    // a station changing symbol or conditions gets a fresh icon.
-    val key = "${colour}_${symbolTable}${symbolCode}${wxKey ?: ""}"
+    val ctx = map.context
+    val (tbl, cod) = if (uk.aprsnet.client.aprs.AprsSymbols.isValid(symbolTable, symbolCode))
+        symbolTable to symbolCode
+    else uk.aprsnet.client.aprs.AprsSymbols.defaultFor(type)
+    val wxKey = if (type == StationType.WEATHER && wx != null) wxConditionKey(wx) else null
+    val key = "${uk.aprsnet.client.aprs.AprsSymbols.normalize(tbl, cod)}${wxKey ?: ""}"
     glyphIconCache[key]?.let { return it }
 
-    val d = map.context.resources.displayMetrics.density
-    val sizePx = (24 * d).toInt()                // 24dp - was 20dp
-    val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bmp)
-    val r = sizePx / 2f
-    val outline = Paint().apply {
-        isAntiAlias = true; color = AColor.WHITE; style = Paint.Style.FILL
-    }
-    val fill = Paint().apply {
-        isAntiAlias = true; color = colour; style = Paint.Style.FILL
-    }
-    canvas.drawCircle(r, r, r, outline)
-    canvas.drawCircle(r, r, r - 2f * d, fill)
+    val d = ctx.resources.displayMetrics.density
+    val sizePx = (MARKER_DP * d).toInt()
+    val symbol = uk.aprsnet.client.aprs.AprsSymbols.bitmap(ctx, tbl, cod, sizePx)
 
-    // Weather stations: draw the condition emoji (rain/snow/sun/etc.) in
-    // place of the generic APRS sprite, so the marker itself communicates
-    // current conditions.
-    if (wxEmoji != null) {
-        val txt = Paint().apply {
-            isAntiAlias = true
-            textAlign = Paint.Align.CENTER
-            textSize = 13f * d
-        }
-        val fm = txt.fontMetrics
-        canvas.drawText(wxEmoji, r, r - (fm.ascent + fm.descent) / 2f, txt)
-        val drawable = BitmapDrawable(map.context.resources, bmp)
-        glyphIconCache[key] = drawable
-        return drawable
-    }
-
-    // Prefer the real APRS sprite over our 3-letter glyph fallback. The
-    // sprite is drawn slightly smaller than the inner fill so the colour
-    // ring stays visible at low zoom (type-colour cue) and the recognisable
-    // APRS symbol shows at high zoom.
-    val sprite = uk.aprsnet.client.aprs.AprsSymbols.bitmap(
-        map.context, symbolTable, symbolCode)
-    if (sprite != null) {
-        val spriteSize = (18 * d)        // 18dp sprite inside the 24dp circle
-        val left = r - spriteSize / 2f
-        val top  = r - spriteSize / 2f
-        val dst = android.graphics.RectF(left, top, left + spriteSize, top + spriteSize)
-        val src = android.graphics.Rect(0, 0, sprite.width, sprite.height)
-        canvas.drawBitmap(sprite, src, dst, Paint().apply { isAntiAlias = true; isFilterBitmap = true })
+    val drawable = if (wxKey == null || wx == null) {
+        BitmapDrawable(ctx.resources, symbol)
     } else {
-        // Fallback: 3-letter glyph for symbols not in the sheet (shouldn't
-        // really happen but keeps unknown symbols readable).
-        val glyph = aprsGlyph(symbolTable, symbolCode)
-        if (glyph != null) {
-            val txt = Paint().apply {
-                isAntiAlias = true; color = AColor.WHITE
-                textAlign = Paint.Align.CENTER
-                isFakeBoldText = true
-                textSize = 9f * d
-            }
-            val fm = txt.fontMetrics
-            canvas.drawText(glyph, r, r - (fm.ascent + fm.descent) / 2f, txt)
-        }
+        val bmp = symbol.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(bmp)
+        val (emoji, tint) = weatherCondition(wx)
+        val br = 6.5f * d
+        val cx = sizePx - br
+        val cy = br
+        canvas.drawCircle(cx, cy, br, Paint().apply { isAntiAlias = true; color = AColor.WHITE })
+        canvas.drawCircle(cx, cy, br - 1.5f * d, Paint().apply { isAntiAlias = true; color = tint.toArgb() })
+        val txt = Paint().apply { isAntiAlias = true; textAlign = Paint.Align.CENTER; textSize = 8f * d }
+        val fm = txt.fontMetrics
+        canvas.drawText(emoji, cx, cy - (fm.ascent + fm.descent) / 2f, txt)
+        BitmapDrawable(ctx.resources, bmp)
     }
-
-    val drawable = BitmapDrawable(map.context.resources, bmp)
     glyphIconCache[key] = drawable
     return drawable
 }
-
-/**
- * Curated APRS-symbol-to-glyph table. Maps the most common (table, code)
- * pairs from the APRS symbol set to a short readable string drawn on the
- * marker. Unknown pairs return null so the marker stays a plain dot.
- * Reference: APRS Spec 1.0.1 Chapter 20 (Symbol Tables)
- */
-private fun aprsGlyph(table: Char, code: Char): String? {
-    if (table != '/' && table != '\\') return null
-    return APRS_GLYPHS[code]
-}
-
-private val APRS_GLYPHS: Map<Char, String> = mapOf(
-    '>' to "CAR",   '<' to "M/C",   '-' to "QTH",  ':' to "FD",
-    ';' to "CMP",   '=' to "RR",    '?' to "?",    '@' to "HUR",
-    '#' to "DIG",   '&' to "GW",    '_' to "WX",   '`' to "DSH",
-    '^' to "AIR",   '\'' to "AIR",  '!' to "POL",
-    'A' to "AID",   'C' to "CAN",   'E' to "EYE",  'F' to "FRM",
-    'H' to "HTL",   'K' to "SCH",   'L' to "PC",   'N' to "NTS",
-    'O' to "BAL",   'P' to "POL",   'R' to "RV",   'S' to "SHU",
-    'U' to "BUS",   'W' to "NWS",   'X' to "HEL",  'Y' to "YAC",
-    'a' to "AMB",   'b' to "BIKE",  'd' to "FRE",  'e' to "HRS",
-    'f' to "TRK",   'g' to "GLD",   'h' to "HSP",  'j' to "JEEP",
-    'k' to "TRK",   'l' to "LAP",   'n' to "NODE", 'o' to "EOC",
-    'r' to "RPT",   's' to "SHIP",  't' to "STOP", 'u' to "18W",
-    'v' to "VAN",   'w' to "WTR",   'y' to "YAGI", '[' to "JOG"
-)
 
 private fun myDotIcon(map: MapView): BitmapDrawable {
     val key = 0x00BFFF

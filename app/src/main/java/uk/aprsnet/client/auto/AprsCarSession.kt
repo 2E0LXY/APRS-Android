@@ -10,5 +10,9 @@ import uk.aprsnet.client.auto.screens.HomeScreen
  * Routes to the full APRS Net Auto UI (v2.9.0 — navigation category).
  */
 class AprsCarSession : Session() {
-    override fun onCreateScreen(intent: Intent): Screen = HomeScreen(carContext)
+    override fun onCreateScreen(intent: Intent): Screen {
+        // Car process may start without MainActivity: make the symbol engine context-free ready.
+        uk.aprsnet.client.aprs.AprsSymbols.init(carContext)
+        return HomeScreen(carContext)
+    }
 }

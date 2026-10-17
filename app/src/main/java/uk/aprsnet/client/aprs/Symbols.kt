@@ -4,9 +4,8 @@ import androidx.compose.ui.graphics.Color
 import uk.aprsnet.client.model.StationType
 
 /**
- * Maps APRS symbol codes / station types to a marker colour and short glyph.
- * A lightweight native stand-in for the website's symbol sprite sheet -
- * enough to distinguish station kinds at a glance on the map.
+ * Station-type colours (used for list accents). Symbol artwork and descriptions come
+ * from the official set via [AprsSymbols].
  */
 object Symbols {
 
@@ -32,21 +31,6 @@ object Symbols {
         StationType.OTHER   -> OTHER
     }
 
-    /** Rough description of a symbol code for the station detail sheet. */
-    fun describe(table: Char, code: Char): String = when (code) {
-        '_' -> "Weather station"
-        '>' -> "Car"
-        'k' -> "Truck"
-        'b' -> "Bicycle"
-        '<' -> "Motorcycle"
-        'O' -> "Balloon"
-        '\'' -> "Aircraft / glider"
-        'Y' -> "Yacht"
-        's' -> "Ship / boat"
-        '-' -> "House / QTH"
-        'r' -> "Repeater"
-        'I' -> "TCP/IP station"
-        '#' -> "Digipeater"
-        else -> "Station ($table$code)"
-    }
+    /** Official aprs.fi description for a symbol (see [AprsSymbols]). */
+    fun describe(table: Char, code: Char): String = AprsSymbols.describe(table, code)
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -949,109 +950,94 @@ private fun BubbleSwatch(
     )
 }
 // ============================================================================
-// SymbolPicker - curated grid of common APRS symbols + current-selection
-// preview. Replaces the previous two text-field arrangement which gave no
-// visual feedback. Tapping a swatch updates symT/symC immediately - the
-// user still hits 'Save position settings' to persist.
+// SymbolPicker - the complete official APRS symbol set: primary table, alternate
+// table and overlay characters (A-Z, 0-9), with the official description.
+// onChange receives the *table character as transmitted*: '/', '\\', or the overlay
+// character. The user still hits 'Save position settings' to persist.
 // ============================================================================
-private data class SymbolChoice(val table: Char, val code: Char, val label: String)
-
-private val SYMBOL_CHOICES = listOf(
-    SymbolChoice('/', '-', "QTH"),
-    SymbolChoice('/', '>', "Car"),
-    SymbolChoice('/', '<', "M/cycle"),
-    SymbolChoice('/', 'b', "Bike"),
-    SymbolChoice('/', '[', "Jogger"),
-    SymbolChoice('/', 'k', "Truck"),
-    SymbolChoice('/', 'u', "18W"),
-    SymbolChoice('/', 'R', "RV"),
-    SymbolChoice('/', 'v', "Van"),
-    SymbolChoice('/', 'Y', "Yacht"),
-    SymbolChoice('/', 's', "Ship"),
-    SymbolChoice('/', 'C', "Canoe"),
-    SymbolChoice('/', '^', "Aircraft"),
-    SymbolChoice('/', '\'', "Sm. air"),
-    SymbolChoice('/', 'X', "Heli"),
-    SymbolChoice('/', 'O', "Balloon"),
-    SymbolChoice('/', 'g', "Glider"),
-    SymbolChoice('/', '_', "WX"),
-    SymbolChoice('/', '#', "Digi"),
-    SymbolChoice('/', '&', "IGate"),
-    SymbolChoice('\\', 'r', "Repeat"),
-    SymbolChoice('/', 'H', "Hotel"),
-    SymbolChoice('/', 'h', "Hosp"),
-    SymbolChoice('/', ';', "Camp")
-)
-
 @Composable
 private fun SymbolPicker(
     currentTable: Char,
     currentCode: Char,
     onChange: (Char, Char) -> Unit
 ) {
-    // Current selection preview - sprite + table/code/label
-    val currentChoice = SYMBOL_CHOICES.firstOrNull {
-        it.table == currentTable && it.code == currentCode
-    }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val parsed = uk.aprsnet.client.aprs.AprsSymbols.parse(currentTable, currentCode)
+    var alternate by remember { mutableStateOf(parsed?.sheet == 1) }
+    var overlay by remember { mutableStateOf(parsed?.overlay) }
+    var overlayMenu by remember { mutableStateOf(false) }
+    val tableChar: Char = if (!alternate) '/' else (overlay ?: '\\')
+
+    // Current selection preview
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
     ) {
-        uk.aprsnet.client.ui.common.AprsSymbolIcon(
-            table = currentTable, code = currentCode, size = 40.dp)
+        uk.aprsnet.client.ui.common.AprsSymbolIcon(table = currentTable, code = currentCode, size = 44.dp)
         Spacer(Modifier.size(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "Current: $currentTable $currentCode" +
-                    (currentChoice?.let { "  -  ${it.label}" } ?: "  -  custom"),
+                uk.aprsnet.client.aprs.AprsSymbols.describe(ctx, currentTable, currentCode),
                 color = TextBase, fontWeight = FontWeight.Bold, fontSize = 14.sp
             )
-            Text("Tap a swatch below to change", color = TextDim, fontSize = 11.sp)
+            Text("Code: $currentTable$currentCode", color = TextDim, fontSize = 11.sp)
         }
     }
 
-    // 6-column grid via Column-of-Rows (works inside scrolling parent;
-    // LazyVerticalGrid would conflict with the surrounding scroll).
-    val cols = 6
-    SYMBOL_CHOICES.chunked(cols).forEach { row ->
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-            row.forEach { choice ->
-                val selected = choice.table == currentTable && choice.code == currentCode
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 2.dp)
-                        .clickable { onChange(choice.table, choice.code) }
-                        .padding(vertical = 6.dp),
-                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
-                ) {
-                    androidx.compose.foundation.layout.Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .then(
-                                if (selected)
-                                    Modifier.border(
-                                        width = 2.dp,
-                                        color = Accent,
-                                        shape = androidx.compose.foundation.shape.CircleShape
-                                    ).padding(2.dp)
-                                else Modifier
-                            )
-                    ) {
-                        uk.aprsnet.client.ui.common.AprsSymbolIcon(
-                            table = choice.table, code = choice.code, size = 36.dp)
+    // Table selector + overlay chooser
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        if (!alternate) Button(onClick = {}) { Text("Primary /") }
+        else OutlinedButton(onClick = { alternate = false }) { Text("Primary /") }
+        Spacer(Modifier.size(8.dp))
+        if (alternate) Button(onClick = {}) { Text("Alternate \\") }
+        else OutlinedButton(onClick = { alternate = true }) { Text("Alternate \\") }
+        if (alternate) {
+            Spacer(Modifier.size(8.dp))
+            androidx.compose.foundation.layout.Box {
+                OutlinedButton(onClick = { overlayMenu = true }) { Text("Overlay: ${overlay ?: "none"}") }
+                DropdownMenu(expanded = overlayMenu, onDismissRequest = { overlayMenu = false }) {
+                    DropdownMenuItem(text = { Text("none") }, onClick = { overlay = null; overlayMenu = false })
+                    ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ").forEach { o ->
+                        DropdownMenuItem(text = { Text(o.toString()) }, onClick = { overlay = o; overlayMenu = false })
                     }
-                    Text(
-                        choice.label,
-                        color = if (selected) Accent else TextDim,
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
                 }
             }
-            // Pad short final row so cells stay aligned
-            repeat(cols - row.size) {
-                Spacer(modifier = Modifier.weight(1f))
+        }
+    }
+
+    // All 94 symbols of the selected table. Fixed-height inner scroll (a Lazy grid would
+    // conflict with the surrounding scroll).
+    val cols = 8
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 300.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        (33..126).map { it.toChar() }.chunked(cols).forEach { row ->
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)) {
+                row.forEach { code ->
+                    val selected = uk.aprsnet.client.aprs.AprsSymbols.normalize(tableChar, code) ==
+                        uk.aprsnet.client.aprs.AprsSymbols.normalize(currentTable, currentCode)
+                    androidx.compose.foundation.layout.Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(1.dp)
+                            .clickable { onChange(tableChar, code) }
+                            .then(
+                                if (selected) Modifier.border(2.dp, Accent, RoundedCornerShape(8.dp))
+                                else Modifier
+                            )
+                            .padding(3.dp),
+                        contentAlignment = androidx.compose.ui.Alignment.Center
+                    ) {
+                        uk.aprsnet.client.ui.common.AprsSymbolIcon(table = tableChar, code = code, size = 34.dp)
+                    }
+                }
+                repeat(cols - row.size) { Spacer(modifier = Modifier.weight(1f)) }
             }
         }
     }
